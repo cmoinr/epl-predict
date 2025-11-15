@@ -1,0 +1,24 @@
+{
+  "timestamp": "20251115_141037",
+  "best_model": "GradientBoosting",
+  "metrics": {
+    "LogisticRegression": {
+      "accuracy": 0.7174220963172805,
+      "precision": 0.7047669727910522,
+      "recall": 0.7174220963172805,
+      "f1": 0.7095480284656859
+    },
+    "RandomForest": {
+      "accuracy": 0.7096317280453258,
+      "precision": 0.6903591721037923,
+      "recall": 0.7096317280453258,
+      "f1": 0.6951038997911514
+    },
+    "GradientBoosting": {
+      "accuracy": 0.7415014164305949,
+      "precision": 0.7327443627890772,
+      "recall": 0.7415014164305949,
+      "f1": 0.7357333387450009
+    }
+  }
+}

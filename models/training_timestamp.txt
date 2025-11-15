@@ -1,5 +1,5 @@
-Timestamp: 20251115_161707
+Timestamp: 20251115_141639
 Mejoras aplicadas:
-  ‚Ä¢ class_weight='balanced' en Random Forest
-  ‚Ä¢ Features adicionales mejoradas
-  ‚Ä¢ Hiperpar√°metros optimizados
+  ï class_weight='balanced' en Random Forest
+  ï Features adicionales mejoradas
+  ï Hiperpar·metros optimizados

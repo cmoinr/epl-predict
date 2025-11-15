@@ -16,6 +16,8 @@ El script automáticamente:
     4. Muestra análisis detallado
 """
 
+import os
+import re
 import sys
 import subprocess
 import json
@@ -33,12 +35,18 @@ def load_odds_and_matches(odds_file='data/processed/sample_odds.csv'):
 def get_model_predictions(home_team, away_team, date):
     """Obtiene predicciones del modelo ejecutando predict_match.py"""
     try:
+        python_cmd = [sys.executable or 'python', 'predict_match.py']
+        env = os.environ.copy()
+        env.setdefault('PYTHONIOENCODING', 'utf-8')
+        env.setdefault('PYTHONUTF8', '1')
         result = subprocess.run(
-            ['python', 'predict_match.py', '--home', home_team, '--away', away_team, 
-             '--date', date],
+            python_cmd + ['--home', home_team, '--away', away_team, '--date', date],
             capture_output=True,
             text=True,
-            timeout=30
+            encoding='utf-8',
+            timeout=30,
+            env=env,
+            cwd=str(Path(__file__).parent)
         )
         
         if result.returncode != 0:
@@ -65,8 +73,17 @@ def parse_prediction_output(output, home_team, away_team):
                 'gradient_boosting': {'probabilidades': {'Home Win': 0, 'Draw': 0, 'Away Win': 0}}
             }
         }
+
+        prediction['goles_totales'] = {
+            'prediccion': 2.5,
+            'random_forest': None,
+            'gradient_boosting': None,
+            'promedio': None
+        }
         
         current_model = None
+        goals_section = False
+        goals_pattern = re.compile(r':\s*([0-9]+(?:\.[0-9]+)?)')
         
         for line in lines:
             line_stripped = line.strip()
@@ -76,6 +93,27 @@ def parse_prediction_output(output, home_team, away_team):
                 current_model = 'random_forest'
             elif '⚡ Gradient Boosting:' in line:
                 current_model = 'gradient_boosting'
+
+            if '⚽ GOLES TOTALES' in line_stripped:
+                goals_section = True
+                continue
+
+            if goals_section:
+                if 'Random Forest:' in line_stripped:
+                    match = goals_pattern.search(line_stripped)
+                    if match:
+                        prediction['goles_totales']['random_forest'] = float(match.group(1))
+                    continue
+                if 'Gradient Boosting:' in line_stripped:
+                    match = goals_pattern.search(line_stripped)
+                    if match:
+                        prediction['goles_totales']['gradient_boosting'] = float(match.group(1))
+                    continue
+                if 'Promedio:' in line_stripped or '📈 Promedio:' in line_stripped:
+                    match = goals_pattern.search(line_stripped)
+                    if match:
+                        prediction['goles_totales']['promedio'] = float(match.group(1))
+                    continue
             
             # Parsear línea con "Away X% | Draw X% | Home X%"
             if current_model and 'Away' in line_stripped and '%' in line_stripped and '|' in line_stripped:
@@ -106,6 +144,15 @@ def parse_prediction_output(output, home_team, away_team):
         rf_probs = prediction['resultado']['random_forest']['probabilidades']
         gb_probs = prediction['resultado']['gradient_boosting']['probabilidades']
         
+        rf_goals = prediction['goles_totales']['random_forest']
+        gb_goals = prediction['goles_totales']['gradient_boosting']
+        promedio = prediction['goles_totales']['promedio']
+        if promedio is None and rf_goals is not None and gb_goals is not None:
+            promedio = round((rf_goals + gb_goals) / 2, 2)
+            prediction['goles_totales']['promedio'] = promedio
+        if promedio is not None:
+            prediction['goles_totales']['prediccion'] = promedio
+
         if sum(rf_probs.values()) > 0 or sum(gb_probs.values()) > 0:
             return prediction
         
@@ -285,9 +332,8 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
 
 
 def main():
-    print("\n" + "🚀"*50)
     print("ANÁLISIS INTEGRADO: PREDICCIÓN + COMPARATIVA DE ODDS")
-    print("🚀"*50)
+    print()
     
     # Cargar datos
     print("\n📥 Cargando partidos y odds...")
@@ -352,39 +398,39 @@ def main():
                 })
     
     # Resumen final
-    if all_bets:
-        print("\n" + "="*120)
-        print("📊 RESUMEN: APUESTAS RECOMENDADAS (BET)")
-        print("="*120)
+    # if all_bets:
+    #     print("\n" + "="*120)
+    #     print("📊 RESUMEN: APUESTAS RECOMENDADAS (BET)")
+    #     print("="*120)
         
-        bets_df = pd.DataFrame(all_bets)
-        bets_df = bets_df.sort_values('ev', ascending=False)
+    #     bets_df = pd.DataFrame(all_bets)
+    #     bets_df = bets_df.sort_values('ev', ascending=False)
         
-        print(f"\nTotal de apuestas BET: {len(bets_df)}\n")
+    #     print(f"\nTotal de apuestas BET: {len(bets_df)}\n")
         
-        total_ev = 0
-        total_kelly = 0
+    #     total_ev = 0
+    #     total_kelly = 0
         
-        for idx, bet in bets_df.iterrows():
-            print(f"{idx+1}. {bet['match']} ({bet['date']})")
-            print(f"   {bet['outcome']} a {bet['odds']:.2f}")
-            print(f"   Edge: {bet['edge']:+.2%} | EV: {bet['ev']:+.2%}")
-            print(f"   Kelly 1/4: {bet['kelly_quarter']:.2%} → Apuesta: {bet['kelly_quarter']*1000:.2f}€")
-            print()
+    #     for idx, bet in bets_df.iterrows():
+    #         print(f"{idx+1}. {bet['match']} ({bet['date']})")
+    #         print(f"   {bet['outcome']} a {bet['odds']:.2f}")
+    #         print(f"   Edge: {bet['edge']:+.2%} | EV: {bet['ev']:+.2%}")
+    #         print(f"   Kelly 1/4: {bet['kelly_quarter']:.2%} → Apuesta: {bet['kelly_quarter']*1000:.2f}€")
+    #         print()
             
-            total_ev += bet['ev']
-            total_kelly += bet['kelly_quarter']
+    #         total_ev += bet['ev']
+    #         total_kelly += bet['kelly_quarter']
         
-        print(f"💰 TOTALES (con 1000€ de bankroll por apuesta):")
-        print(f"   • EV promedio: {total_ev/len(bets_df):.2%}")
-        print(f"   • Kelly promedio: {total_kelly/len(bets_df):.2%}")
-        print(f"   • Inversión total (1/4 Kelly): {(total_kelly/len(bets_df))*1000*len(bets_df):.2f}€")
-        print(f"   • Ganancia esperada: {(total_kelly/len(bets_df))*1000*len(bets_df)*(total_ev/len(bets_df)):.2f}€")
-    else:
-        print("\n" + "="*120)
-        print("⚠️  NO HAY APUESTAS RECOMENDADAS (BET)")
-        print("="*120)
-        print("\nTodas las oportunidades están por debajo del umbral de rentabilidad.")
+    #     print(f"💰 TOTALES (con 1000€ de bankroll por apuesta):")
+    #     print(f"   • EV promedio: {total_ev/len(bets_df):.2%}")
+    #     print(f"   • Kelly promedio: {total_kelly/len(bets_df):.2%}")
+    #     print(f"   • Inversión total (1/4 Kelly): {(total_kelly/len(bets_df))*1000*len(bets_df):.2f}€")
+    #     print(f"   • Ganancia esperada: {(total_kelly/len(bets_df))*1000*len(bets_df)*(total_ev/len(bets_df)):.2f}€")
+    # else:
+    #     print("\n" + "="*120)
+    #     print("⚠️  NO HAY APUESTAS RECOMENDADAS (BET)")
+    #     print("="*120)
+    #     print("\nTodas las oportunidades están por debajo del umbral de rentabilidad.")
     
     print("\n" + "="*120)
     print("✅ Análisis completado")
