@@ -1,0 +1,31 @@
+FEATURE ENGINEERING INFO
+==================================================
+Created: 20251115_153938
+Total samples: 9410
+Total features: 24
+
+FEATURES:
+  1. HomeShots
+  2. AwayShots
+  3. HomeShotsOnTarget
+  4. AwayShotsOnTarget
+  5. HomeCorners
+  6. AwayCorners
+  7. HomeFouls
+  8. AwayFouls
+  9. HomeYellowCards
+  10. AwayYellowCards
+  11. HomeRedCards
+  12. AwayRedCards
+  13. HalfTimeHomeGoals
+  14. HalfTimeAwayGoals
+  15. HomeTeam_Form
+  16. AwayTeam_Form
+  17. HomeTeam_GoalsFor_Avg
+  18. HomeTeam_GoalsAgainst_Avg
+  19. AwayTeam_GoalsFor_Avg
+  20. AwayTeam_GoalsAgainst_Avg
+  21. HomeAdvantage
+  22. Month
+  23. DayOfWeek
+  24. Quarter
