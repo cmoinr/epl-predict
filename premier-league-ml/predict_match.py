@@ -21,14 +21,20 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Ejemplos:
-  python predict_match.py --home "Chelsea" --away "Liverpool" --date "2025-02-22"
+  # Predicción simple (sin fecha)
+  python predict_match.py --home "Chelsea" --away "Liverpool"
+  
+  # Con fecha específica
   python predict_match.py --home "Manchester City" --away "Arsenal" --date "2025-03-01"
+  
+  # Solo resultado
+  python predict_match.py --home "Chelsea" --away "Liverpool" --quiet
         '''
     )
     
     parser.add_argument('--home', required=True, help='Equipo local (ej: Chelsea)')
     parser.add_argument('--away', required=True, help='Equipo visitante (ej: Liverpool)')
-    parser.add_argument('--date', required=True, help='Fecha (formato: YYYY-MM-DD)')
+    parser.add_argument('--date', default=None, help='Fecha (formato: YYYY-MM-DD). Si no se proporciona, usa la fecha actual/próxima.')
     parser.add_argument('--data', default='data/raw/epl_final.csv', 
                        help='Ruta al dataset histórico')
     parser.add_argument('--models', default='models',
@@ -45,24 +51,31 @@ Ejemplos:
             sys.exit(1)
         
         df = pd.read_csv(args.data)
-        print(f'📊 Dataset cargado: {args.data} ({len(df)} partidos)')
+        print(f'📊 Dataset cargado: {args.data} ({len(df)} partidos)\n')
         
         # Cargar modelos
         predictor = EPLPredictor(args.models)
         
+        # Si no hay fecha, usar la fecha actual
+        match_date = args.date
+        if not match_date:
+            from datetime import datetime
+            match_date = datetime.now().strftime('%Y-%m-%d')
+            print(f'📅 Usando fecha actual: {match_date}\n')
+        
         # Hacer predicción
-        print(f'🔮 Prediciendo: {args.home} vs {args.away} ({args.date})...')
+        print(f'🔮 Prediciendo: {args.home} vs {args.away} ({match_date})...\n')
         result = predictor.predict_match(
             df_historical=df,
             home_team=args.home,
             away_team=args.away,
-            match_date=args.date
+            match_date=match_date
         )
         
         # Mostrar resultado
         if args.quiet:
             # Mostrar solo resultado
-            print(f"\n{result['resultado']['random_forest']['prediccion']}")
+            print(f"{result['resultado']['random_forest']['prediccion']}")
         else:
             # Mostrar detallado
             predictor.print_prediction(result, verbose=True)
