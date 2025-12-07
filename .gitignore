@@ -48,6 +48,11 @@ data/processed/*.json
 # Models - Peso, descarga bajo demanda
 models/*.pkl
 models/*.joblib
+
+# Streamlit cache & secrets
+.streamlit/secrets.toml
+.streamlit/cache/
+
 models/*.h5
 models/*.pth
 

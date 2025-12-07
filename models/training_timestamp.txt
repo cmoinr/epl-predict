@@ -1,4 +1,4 @@
-Timestamp: 20251115_141639
+Timestamp: 20251122_104503
 Mejoras aplicadas:
   • class_weight='balanced' en Random Forest
   • Features adicionales mejoradas

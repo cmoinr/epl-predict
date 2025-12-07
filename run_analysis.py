@@ -29,6 +29,8 @@ from src.odds_comparison import OddsComparison
 def load_odds_and_matches(odds_file='data/processed/sample_odds.csv'):
     """Carga los partidos y odds del CSV"""
     odds_df = pd.read_csv(odds_file)
+    # Limpiar nombres de columnas (eliminar espacios extra)
+    odds_df.columns = odds_df.columns.str.strip()
     return odds_df
 
 
@@ -80,10 +82,16 @@ def parse_prediction_output(output, home_team, away_team):
             'gradient_boosting': None,
             'promedio': None
         }
+
+        prediction['ambos_anotan'] = {
+            'promedio': {'si': 0, 'no': 0}
+        }
         
         current_model = None
         goals_section = False
+        btts_section = False
         goals_pattern = re.compile(r':\s*([0-9]+(?:\.[0-9]+)?)')
+        btts_pattern = re.compile(r'SI\s*([0-9]+(?:\.[0-9]+)?)\%\s*\|\s*NO\s*([0-9]+(?:\.[0-9]+)?)\%')
         
         for line in lines:
             line_stripped = line.strip()
@@ -96,6 +104,12 @@ def parse_prediction_output(output, home_team, away_team):
 
             if '⚽ GOLES TOTALES' in line_stripped:
                 goals_section = True
+                btts_section = False
+                continue
+            
+            if '🥅 AMBOS ANOTAN (BTTS)' in line_stripped:
+                goals_section = False
+                btts_section = True
                 continue
 
             if goals_section:
@@ -115,8 +129,16 @@ def parse_prediction_output(output, home_team, away_team):
                         prediction['goles_totales']['promedio'] = float(match.group(1))
                     continue
             
+            if btts_section:
+                if 'Promedio:' in line_stripped or '📈 Promedio:' in line_stripped:
+                    match = btts_pattern.search(line_stripped)
+                    if match:
+                        prediction['ambos_anotan']['promedio']['si'] = float(match.group(1))
+                        prediction['ambos_anotan']['promedio']['no'] = float(match.group(2))
+                    continue
+            
             # Parsear línea con "Away X% | Draw X% | Home X%"
-            if current_model and 'Away' in line_stripped and '%' in line_stripped and '|' in line_stripped:
+            if current_model and 'Away' in line_stripped and '%' in line_stripped and '|' in line_stripped and not btts_section:
                 try:
                     # Formato: "Detalles: Away 76.9% | Draw 15.6% | Home 7.5%"
                     # Remover "Detalles: " si existe
@@ -199,8 +221,18 @@ def get_total_goals(prediction):
         return 2.5
 
 
+def get_btts_probs(prediction):
+    """Extrae probabilidades de BTTS"""
+    try:
+        if 'ambos_anotan' in prediction:
+            return prediction['ambos_anotan'].get('promedio', {'si': 50, 'no': 50})
+        return {'si': 50, 'no': 50}
+    except:
+        return {'si': 50, 'no': 50}
+
+
 def analyze_single_match(comparator, home_team, away_team, date, model_probs, 
-                        total_goals, odds_row):
+                        total_goals, odds_row, btts_probs=None):
     """Analiza un partido individual"""
     
     odds = {
@@ -209,6 +241,8 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         'away_win_odds': odds_row['away_win_odds'],
         'over_2_5_odds': odds_row['over_2_5_odds'],
         'under_2_5_odds': odds_row['under_2_5_odds'],
+        'both_score_yes': odds_row.get('both_score_yes', 0),
+        'both_score_no': odds_row.get('both_score_no', 0),
     }
     
     market_probs = {
@@ -269,11 +303,54 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
     over_ev = (over_model_prob * odds['over_2_5_odds']) - 1
     under_ev = (under_model_prob * odds['under_2_5_odds']) - 1
     
-    return results, over_model_prob, over_edge, over_ev, under_model_prob, under_edge, under_ev, odds
+    # Análisis BTTS
+    btts_results = []
+    if btts_probs and odds['both_score_yes'] > 0:
+        # BTTS Yes
+        btts_yes_prob = btts_probs['si'] / 100
+        btts_yes_market = 1 / odds['both_score_yes']
+        btts_yes_edge = btts_yes_prob - btts_yes_market
+        btts_yes_ev = (btts_yes_prob * odds['both_score_yes']) - 1
+        
+        btts_yes_rec = "🟢 BET" if btts_yes_edge > 0.03 and btts_yes_ev > 0.10 else \
+                       "🟡 CONSIDER" if btts_yes_edge > 0 and btts_yes_ev > 0.05 else \
+                       "🔵 MONITOR" if btts_yes_edge > 0 else "❌ SKIP"
+        
+        btts_results.append({
+            'outcome': 'BTTS Yes',
+            'model_prob': btts_yes_prob,
+            'market_prob': btts_yes_market,
+            'odds': odds['both_score_yes'],
+            'edge': btts_yes_edge,
+            'ev': btts_yes_ev,
+            'rec': btts_yes_rec
+        })
+        
+        # BTTS No
+        btts_no_prob = btts_probs['no'] / 100
+        btts_no_market = 1 / odds['both_score_no']
+        btts_no_edge = btts_no_prob - btts_no_market
+        btts_no_ev = (btts_no_prob * odds['both_score_no']) - 1
+        
+        btts_no_rec = "🟢 BET" if btts_no_edge > 0.03 and btts_no_ev > 0.10 else \
+                      "🟡 CONSIDER" if btts_no_edge > 0 and btts_no_ev > 0.05 else \
+                      "🔵 MONITOR" if btts_no_edge > 0 else "❌ SKIP"
+        
+        btts_results.append({
+            'outcome': 'BTTS No',
+            'model_prob': btts_no_prob,
+            'market_prob': btts_no_market,
+            'odds': odds['both_score_no'],
+            'edge': btts_no_edge,
+            'ev': btts_no_ev,
+            'rec': btts_no_rec
+        })
+
+    return results, over_model_prob, over_edge, over_ev, under_model_prob, under_edge, under_ev, odds, btts_results
 
 
 def print_match_analysis(comparator, home_team, away_team, date, model_probs, 
-                        total_goals, odds_row, match_num, total_matches):
+                        total_goals, odds_row, match_num, total_matches, btts_probs=None):
     """Imprime análisis de un partido"""
     
     print("\n" + "="*120)
@@ -286,11 +363,13 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
     print(f"   • Draw: {model_probs['Draw']:.1%}")
     print(f"   • {away_team}: {model_probs['Away Win']:.1%}")
     print(f"   • Goles totales predichos: {total_goals:.1f}")
+    if btts_probs:
+        print(f"   • Ambos Anotan (BTTS): SI {btts_probs['si']:.1f}% | NO {btts_probs['no']:.1f}%")
     
     # Análisis
-    results, over_prob, over_edge, over_ev, under_prob, under_edge, under_ev, odds = \
+    results, over_prob, over_edge, over_ev, under_prob, under_edge, under_ev, odds, btts_results = \
         analyze_single_match(comparator, home_team, away_team, date, model_probs, 
-                            total_goals, odds_row)
+                            total_goals, odds_row, btts_probs)
     
     print(f"\n✨ ANÁLISIS 1X2:")
     best_result = None
@@ -320,6 +399,17 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
                 "🔵 MONITOR" if under_edge > 0 else "❌ SKIP"
     print(f"      {under_rec}")
     
+    if btts_results:
+        print(f"\n🥅 ANÁLISIS AMBOS ANOTAN (BTTS):")
+        for r in btts_results:
+            print(f"\n   {r['outcome']}:")
+            print(f"      Cuota: {r['odds']:.2f} | Modelo: {r['model_prob']:.1%} vs Mercado: {r['market_prob']:.1%}")
+            print(f"      Edge: {r['edge']:+.2%} | EV: {r['ev']:+.2%}")
+            print(f"      {r['rec']}")
+            
+            if r['ev'] > best_result['ev']:
+                best_result = r
+
     # Mejor oportunidad
     if best_result and best_result['rec'].startswith('🟢'):
         kelly = comparator.calculate_kelly_criterion(best_result['model_prob'], best_result['odds'])
@@ -374,16 +464,17 @@ def main():
             continue
         
         total_goals = get_total_goals(prediction)
+        btts_probs = get_btts_probs(prediction)
         
         # Analizar
         print_match_analysis(comparator, home_team, away_team, date, model_probs, 
-                           total_goals, row, idx, len(odds_df))
+                           total_goals, row, idx, len(odds_df), btts_probs)
         
         # Guardar si es BET
-        results, _, _, _, _, _, _, odds = analyze_single_match(
-            comparator, home_team, away_team, date, model_probs, total_goals, row)
+        results, _, _, _, _, _, _, odds, btts_results = analyze_single_match(
+            comparator, home_team, away_team, date, model_probs, total_goals, row, btts_probs)
         
-        for r in results:
+        for r in results + btts_results:
             if r['rec'].startswith('🟢'):
                 kelly = comparator.calculate_kelly_criterion(r['model_prob'], r['odds'])
                 kelly_quarter = comparator.calculate_kelly_fraction(kelly, 0.25)
