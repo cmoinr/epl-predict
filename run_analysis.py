@@ -106,17 +106,17 @@ def parse_prediction_output(output, home_team, away_team):
             line_stripped = line.strip()
             
             # Detectar modelos
-            if '🌲 Random Forest:' in line:
+            if 'Random Forest:' in line:
                 current_model = 'random_forest'
-            elif '⚡ Gradient Boosting:' in line:
+            elif 'Gradient Boosting:' in line:
                 current_model = 'gradient_boosting'
 
-            if '⚽ GOLES TOTALES' in line_stripped:
+            if 'GOLES TOTALES' in line_stripped:
                 goals_section = True
                 btts_section = False
                 continue
             
-            if '🥅 AMBOS ANOTAN' in line_stripped:
+            if 'AMBOS ANOTAN' in line_stripped:
                 btts_section = True
                 goals_section = False
                 continue
@@ -132,7 +132,7 @@ def parse_prediction_output(output, home_team, away_team):
                     if match:
                         prediction['goles_totales']['gradient_boosting'] = float(match.group(1))
                     continue
-                if 'Promedio:' in line_stripped or '📈 Promedio:' in line_stripped:
+                if 'Promedio:' in line_stripped:
                     match = goals_pattern.search(line_stripped)
                     if match:
                         prediction['goles_totales']['promedio'] = float(match.group(1))
@@ -151,7 +151,7 @@ def parse_prediction_output(output, home_team, away_team):
                         prediction['ambos_anotan']['gradient_boosting']['si'] = float(matches[0])
                         prediction['ambos_anotan']['gradient_boosting']['no'] = float(matches[1])
                     continue
-                if 'Promedio:' in line_stripped or '📈 Promedio:' in line_stripped:
+                if 'Promedio:' in line_stripped:
                     matches = btts_pattern.findall(line_stripped)
                     if len(matches) >= 2:
                         prediction['ambos_anotan']['promedio']['si'] = float(matches[0])
@@ -380,12 +380,12 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
     
     # Predicciones del modelo
     print(f"\nPREDICCIONES DEL MODELO:")
-    print(f"   • {home_team}: {model_probs['Home Win']:.1%}")
-    print(f"   • Draw: {model_probs['Draw']:.1%}")
-    print(f"   • {away_team}: {model_probs['Away Win']:.1%}")
-    print(f"   • Goles totales predichos: {total_goals:.1f}")
+    print(f"   - {home_team}: {model_probs['Home Win']:.1%}")
+    print(f"   - Draw: {model_probs['Draw']:.1%}")
+    print(f"   - {away_team}: {model_probs['Away Win']:.1%}")
+    print(f"   - Goles totales predichos: {total_goals:.1f}")
     if btts_probs:
-        print(f"   • Ambos Anotan (BTTS): SI {btts_probs['si']:.1f}% | NO {btts_probs['no']:.1f}%")
+        print(f"   - Ambos Anotan (BTTS): SI {btts_probs['si']:.1f}% | NO {btts_probs['no']:.1f}%")
     
     # Análisis
     results, over_prob, over_edge, over_ev, under_prob, under_edge, under_ev, odds, btts_results = \
@@ -439,7 +439,7 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
         print(f"\nMEJOR OPORTUNIDAD: {best_result['outcome']} a {best_result['odds']:.2f}")
         print(f"   Edge: {best_result['edge']:+.2%} | EV: {best_result['ev']:+.2%}")
         print(f"   Kelly 1/4 recomendado: {kelly_quarter:.2%}")
-        print(f"   Con 1000€: Apuesta = {kelly_quarter*1000:.2f}€ | Ganancia esperada = {kelly_quarter*1000*best_result['ev']:.2f}€")
+        print(f"   Con 1000$: Apuesta = {kelly_quarter*1000:.2f}$ | Ganancia esperada = {kelly_quarter*1000*best_result['ev']:.2f}$")
 
 
 def main():

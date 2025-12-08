@@ -17,7 +17,7 @@ from predictor import EPLPredictor
 
 def main():
     parser = argparse.ArgumentParser(
-        description='🔮 Predecir resultado y goles de un partido EPL',
+        description='[PRED] Predecir resultado y goles de un partido EPL',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Ejemplos:
@@ -47,11 +47,11 @@ Ejemplos:
     try:
         # Cargar datos históricos
         if not Path(args.data).exists():
-            print(f'❌ Error: No se encuentra dataset en {args.data}')
+            print(f'[ERROR] No se encuentra dataset en {args.data}')
             sys.exit(1)
         
         df = pd.read_csv(args.data)
-        print(f'📊 Dataset cargado: {args.data} ({len(df)} partidos)\n')
+        print(f'[OK] Dataset cargado: {args.data} ({len(df)} partidos)\n')
         
         # Cargar modelos
         predictor = EPLPredictor(args.models)
@@ -61,10 +61,10 @@ Ejemplos:
         if not match_date:
             from datetime import datetime
             match_date = datetime.now().strftime('%Y-%m-%d')
-            print(f'📅 Usando fecha actual: {match_date}\n')
+            print(f'[DATE] Usando fecha actual: {match_date}\n')
         
         # Hacer predicción
-        print(f'🔮 Prediciendo: {args.home} vs {args.away} ({match_date})...\n')
+        print(f'[PRED] Prediciendo: {args.home} vs {args.away} ({match_date})...\n')
         result = predictor.predict_match(
             df_historical=df,
             home_team=args.home,
@@ -81,10 +81,10 @@ Ejemplos:
             predictor.print_prediction(result, verbose=True)
         
     except KeyboardInterrupt:
-        print('\n⚠️  Predicción cancelada')
+        print('\n[WARN] Predicción cancelada')
         sys.exit(0)
     except Exception as e:
-        print(f'❌ Error: {e}')
+        print(f'[ERROR] Error: {e}')
         sys.exit(1)
 
 

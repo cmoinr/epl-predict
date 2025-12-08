@@ -1,120 +1,138 @@
-# 🏆 Premier League ML Predictor - Value Betting System
+# EPL Predictor v1.0 - Terminal Edition
 
-## 🎯 Objetivo
-Predictor de resultados EPL con análisis de odds para identificar oportunidades de **value betting** rentables.
+Predictor de resultados de la Premier League con análisis de **value betting** para identificar oportunidades rentables.
 
-## ⚡ Quick Start
+## Quick Start
 
+### 1. Setup
 ```bash
-# Setup
-python -m venv venv && source venv/bin/activate
+# Crear ambiente virtual
+python -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
+
+# Instalar dependencias
 pip install -r requirements.txt
+```
 
-# Entrenar modelos
-python src/train_models.py
+### 2. Predicción Rápida
+```bash
+# Predecir un partido
+python predict_match.py --home "Chelsea" --away "Liverpool" --date "2025-02-22"
+```
 
-# Predicción + Análisis de odds
+### 3. Análisis Completo con Odds
+```bash
+# Analizar partidos y encontrar value bets
 python run_analysis.py
 ```
 
-Ver `SETUP.md` para instrucciones completas.
+## Características
 
-## 📊 Estado del Proyecto
+### Predicciones
+- **Resultado 1X2** - Home Win / Draw / Away Win
+- **Goles Totales** - Promedio de goles predichos
+- **BTTS** - Probabilidad de que ambos equipos anoten
 
-| Componente | Estado | Descripción |
-|-----------|--------|-------------|
-| **Modelado** | ✅ Completo | Random Forest + Gradient Boosting |
-| **Predicción** | ✅ Completo | Resultados 1X2 + Goles totales |
-| **Odds Integration** | ✅ Completo | Comparación modelo vs mercado |
-| **Value Betting** | ✅ Completo | Edge, EV, Kelly Criterion |
-| **Scripts** | ✅ Completo | predict_match.py, run_analysis.py |
+### Análisis de Odds
+- **Edge** - Ventaja modelo sobre el mercado
+- **Expected Value (EV)** - Rentabilidad esperada
+- **Kelly Criterion** - Fraccionamiento óptimo de apuesta
+- **Recomendaciones** - BET / CONSIDER / MONITOR / SKIP
 
-## Fases del Proyecto
+## Estructura de Directorios
 
-### Fase 1: Preparación (ACTUAL)
-- ✅ Estructura del proyecto
-- ⏳ Configurar dependencias
-- ⏳ Definir plan de datos
-
-### Fase 2: Recopilación de Datos
-- Obtener histórico de partidos PL
-- Features: Form (últimos 5 partidos), Head-to-Head, Posición en tabla, etc.
-
-### Fase 3: Análisis Exploratorio (EDA)
-- Visualizar distribuciones
-- Identificar correlaciones
-- Validar calidad de datos
-
-### Fase 4: Feature Engineering
-- Crear features derivadas
-- Normalización y escalado
-- Manejo de valores faltantes
-
-### Fase 5: Modelado
-- Entrenar múltiples algoritmos
-- Validación cruzada
-- Tuning de hiperparámetros
-
-### Fase 6: Evaluación y Predicciones
-- Métricas: Accuracy, Precision, Recall, F1
-- Pruebas en datos nuevos
-- Recomendación de odds
-
-## Stack Tecnológico
-
-- **Python 3.x**: Lenguaje principal
-- **Pandas**: Manipulación de datos
-- **Scikit-learn**: Machine Learning
-- **XGBoost/LightGBM**: Algoritmos avanzados
-- **Matplotlib/Seaborn**: Visualización
-- **Jupyter**: Análisis interactivo
-
-## 🚀 Guía Rápida
-
-**Estado**: Feature Engineering listo para ejecutar
-
-1. **Lee** (2 min): `QUICK_START_FEATURES.md`
-2. **Ejecuta** (10 min): Jupyter sección 3
-3. **Cuéntame**: Resultados
-
----
-
-## 🎯 Configuración del Proyecto
-
-**Tu estrategia**: 
-- Dataset: EPL 2000-2025 (máximo histórico)
-- Predicciones: Resultado (1X2) + Goles Totales
-- Objetivo: Value betting rentable
-- Odds: Comparar vs mercado
-
-## 📊 Estado Actual
-
-| Fase | Estado | Detalles |
-|------|--------|----------|
-| 1. Dependencias | ✅ Completa | Pandas, SKlearn, XGBoost, etc. |
-| 2. Dataset | ✅ Completa | 9,380 partidos × 25 columnas |
-| 3. EDA | ✅ Completa | Estructura explorada sin NaNs |
-| 4. Features | ⏳ **AHORA** | Crear variables derivadas (~40 features) |
-| 5. Modelado | ⏳ Próximo | Random Forest, Gradient Boosting |
-| 6. Evaluación | ⏳ Próximo | Accuracy, Precision, Recall |
-| 7. Value Betting | ⏳ Próximo | Comparar vs odds reales |
-
-## 🔧 Feature Engineering
-
-**Qué hace:**
-- Form: Puntos en últimos 5 partidos
-- H2H: Histórico entre equipos
-- Goals Avg: Rendimiento ofensivo/defensivo
-- Home Advantage: Ventaja de jugar en casa
-- Temporal: Mes, día semana, año
-
-**Archivos:**
-- `src/feature_engineering.py` - Código
-- `QUICK_START_FEATURES.md` - Leer primero
-- `GUIA_FEATURES.md` - Detalle técnico
-
-**Ejecutar:**
-```bash
-jupyter notebook notebooks/01_eda_and_modeling.ipynb
-# → Sección 3: Feature Engineering
 ```
+epl-predict/
+├── predict_match.py              # Predicción desde terminal
+├── run_analysis.py               # Análisis con odds
+├── retrain_models_improved.py    # Reentrenar modelos
+├── requirements.txt
+├── README.md
+├── src/
+│   ├── predictor.py             # Motor de predicción
+│   ├── feature_engineering.py   # Creación de features
+│   └── odds_comparison.py       # Análisis de valor
+├── data/
+│   ├── raw/
+│   │   └── epl_final.csv        # Dataset histórico (9,420 partidos)
+│   └── processed/
+│       └── sample_odds.csv      # Odds de ejemplo
+└── models/
+    ├── rf_result_model.pkl      # Random Forest - Resultado
+    ├── gb_result_model.pkl      # Gradient Boosting - Resultado
+    ├── rf_goals_model.pkl       # Random Forest - Goles
+    ├── gb_goals_model.pkl       # Gradient Boosting - Goles
+    ├── rf_btts_model.pkl        # Random Forest - BTTS
+    ├── gb_btts_model.pkl        # Gradient Boosting - BTTS
+    └── scaler_model.pkl         # Scaler de features
+```
+
+## Comandos
+
+### Predicción
+```bash
+# Con fecha específica
+python predict_match.py --home "ManCity" --away "Arsenal" --date "2025-03-15"
+
+# Usar fecha actual si no se especifica
+python predict_match.py --home "Liverpool" --away "Chelsea"
+```
+
+### Análisis de Odds
+```bash
+# Leer datos de data/processed/sample_odds.csv
+python run_analysis.py
+```
+
+### Reentrenamiento
+```bash
+# Reentrenar todos los modelos con datos actualizados
+python retrain_models_improved.py
+```
+
+## Modelos Entrenados
+
+**Dataset**: 9,420 partidos históricos de la Premier League  
+**Train/Test**: 85/15 split temporal  
+**Features**: 28 variables derivadas (forma, ofensiva, defensiva, ventaja local, etc.)
+
+**Rendimiento**:
+- Resultado 1X2: 74% Accuracy
+- Goles Totales: 0.86 MAE
+- BTTS: Balanced binary classifier
+
+## Ejemplo de Output
+
+```
+PREDICCIONES DEL MODELO:
+   * Chelsea: 45.2%
+   * Draw: 28.1%
+   * Liverpool: 26.7%
+   * Goles totales predichos: 2.8
+   * Ambos Anotan (BTTS): SI 65.3% | NO 34.7%
+
+ANALISIS AMBOS ANOTAN (BTTS):
+   BTTS Yes:
+      Cuota: 1.72 | Modelo: 65.3% vs Mercado: 58.1%
+      Edge: +7.17% | EV: +12.34%
+      [BET]
+
+MEJOR OPORTUNIDAD: BTTS Yes a 1.72
+   Edge: +7.17% | EV: +12.34%
+   Kelly 1/4 recomendado: 5.89%
+   Con 1000EUR: Apuesta = 58.90EUR | Ganancia esperada = 7.28EUR
+```
+
+## Dependencias
+
+- pandas >= 1.5.0
+- scikit-learn >= 1.0.0
+- numpy >= 1.20.0
+
+## Notas Importantes
+
+- Los datos históricos (epl_final.csv) están en `data/raw/`
+- Las cuotas de apuestas se cargan de `data/processed/sample_odds.csv`
+- Los modelos se guardan automáticamente en `models/` tras entrenar
+- Compatible con Python 3.8+
+- Todos los scripts están optimizados para terminal (sin dependencias de GUI)
