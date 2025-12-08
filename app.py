@@ -30,9 +30,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS personalizado
+# CSS personalizado + Google Fonts
 st.markdown("""
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
     .metric-card {
         background-color: #161b22;
         padding: 20px;
@@ -283,27 +290,6 @@ predict_button = st.sidebar.button(
 )
 
 # ═════════════════════════════════════════════════════════════════
-# INFORMACIÓN ADICIONAL EN SIDEBAR
-# ═════════════════════════════════════════════════════════════════
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📊 Sobre este Dashboard")
-st.sidebar.info(
-    """
-    **Funcionalidades:**
-    - 🤖 Predicciones con Random Forest + Gradient Boosting
-    - 📊 Análisis de probabilidades (1X2)
-    - 💰 Análisis de Value Betting
-    - 📈 Comparación modelo vs mercado
-    
-    **Modelos entrenados con:**
-    - ~9,400 partidos históricos EPL
-    - 25+ features derivadas
-    - Validación cruzada
-    """
-)
-
-# ═════════════════════════════════════════════════════════════════
 # MAIN CONTENT
 # ═════════════════════════════════════════════════════════════════
 
@@ -333,292 +319,400 @@ if predict_button:
         """, unsafe_allow_html=True)
         
         # ═══════════════════════════════════════════════════
-        # SECCION 2: PROBABILIDADES (GAUGES)
+        # SECCION 2: PROBABILIDADES (BARRA HORIZONTAL)
         # ═══════════════════════════════════════════════════
         
-        st.markdown("### 📊 Probabilidades Predichas")
+        st.markdown("### 📊 Probabilidades Predichas (1X2)")
         
-        col1, col2, col3 = st.columns(3)
+        if result and 'resultado' in result:
+            # Obtener probabilidades promedio de RF y GB
+            probs_rf = result['resultado'].get('random_forest', {}).get('probabilidades', {})
+            probs_gb = result['resultado'].get('gradient_boosting', {}).get('probabilidades', {})
+            
+            home_prob = (probs_rf.get('Home Win', 0) + probs_gb.get('Home Win', 0)) / 2
+            draw_prob = (probs_rf.get('Draw', 0) + probs_gb.get('Draw', 0)) / 2
+            away_prob = (probs_rf.get('Away Win', 0) + probs_gb.get('Away Win', 0)) / 2
+            
+            # Crear gráfico de barra horizontal apilada
+            fig = go.Figure()
+            
+            # Victoria Local (azul)
+            fig.add_trace(go.Bar(
+                y=['Probabilidad'],
+                x=[home_prob],
+                name=f'🏠 {home_team}',
+                orientation='h',
+                marker=dict(color='#667eea'),
+                text=f'{home_prob:.1f}%',
+                textposition='inside',
+                textfont=dict(size=16, color='white', family='Inter'),
+                hovertemplate=f'<b>{home_team}</b><br>Probabilidad: %{{x:.1f}}%<extra></extra>'
+            ))
+            
+            # Empate (gris)
+            fig.add_trace(go.Bar(
+                y=['Probabilidad'],
+                x=[draw_prob],
+                name='🤝 Empate',
+                orientation='h',
+                marker=dict(color='#8b949e'),
+                text=f'{draw_prob:.1f}%',
+                textposition='inside',
+                textfont=dict(size=16, color='white', family='Inter'),
+                hovertemplate='<b>Empate</b><br>Probabilidad: %{x:.1f}%<extra></extra>'
+            ))
+            
+            # Victoria Visitante (morado)
+            fig.add_trace(go.Bar(
+                y=['Probabilidad'],
+                x=[away_prob],
+                name=f'✈️ {away_team}',
+                orientation='h',
+                marker=dict(color='#764ba2'),
+                text=f'{away_prob:.1f}%',
+                textposition='inside',
+                textfont=dict(size=16, color='white', family='Inter'),
+                hovertemplate=f'<b>{away_team}</b><br>Probabilidad: %{{x:.1f}}%<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                barmode='stack',
+                height=150,
+                margin=dict(l=0, r=0, t=0, b=0),
+                xaxis=dict(
+                    showticklabels=False,
+                    showgrid=False,
+                    range=[0, 100]
+                ),
+                yaxis=dict(
+                    showticklabels=False,
+                    showgrid=False
+                ),
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                showlegend=True,
+                legend=dict(
+                    orientation='h',
+                    yanchor='bottom',
+                    y=1.02,
+                    xanchor='center',
+                    x=0.5,
+                    font=dict(size=14, family='Inter')
+                ),
+                hoverlabel=dict(
+                    bgcolor='#161b22',
+                    font_size=14,
+                    font_family='Inter'
+                )
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Gráficos adicionales: Over/Under 2.5 y BTTS
+        col1, col2 = st.columns(2)
         
         with col1:
-            if result and 'resultado' in result:
-                probs = result['resultado'].get('random_forest', {}).get('probabilidades', {})
-                home_win_prob = probs.get('Home Win', 0) / 100
-                st.plotly_chart(create_probability_gauge('Home Win', home_win_prob, '#1f77b4'), 
-                              use_container_width=True)
+            st.markdown("#### ⚽ Over/Under 2.5 Goles")
+            
+            # Calcular probabilidad Over/Under
+            goles_pred = 2.5
+            if result and 'goles_totales' in result:
+                goles_pred = result['goles_totales'].get('promedio', 2.5)
+            
+            # Calcular probabilidades
+            if goles_pred > 2.5:
+                over_prob = 0.5 + min((goles_pred - 2.5) * 0.15, 0.45)
+            else:
+                over_prob = 0.5 - min((2.5 - goles_pred) * 0.15, 0.45)
+            
+            over_prob_pct = over_prob * 100
+            under_prob_pct = (1 - over_prob) * 100
+            
+            # Crear gráfico de dona
+            fig_ou = go.Figure(data=[go.Pie(
+                labels=['Over 2.5', 'Under 2.5'],
+                values=[over_prob_pct, under_prob_pct],
+                hole=0.6,
+                marker=dict(colors=['#667eea', '#764ba2']),
+                textinfo='label+percent',
+                textfont=dict(size=13, family='Inter', color='white'),
+                hovertemplate='<b>%{label}</b><br>Probabilidad: %{value:.1f}%<extra></extra>'
+            )])
+            
+            fig_ou.update_layout(
+                height=250,
+                margin=dict(l=20, r=20, t=20, b=20),
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                showlegend=False,
+                annotations=[dict(
+                    text=f'{goles_pred:.2f}<br>goles',
+                    x=0.5, y=0.5,
+                    font=dict(size=20, family='Inter', color='#c9d1d9'),
+                    showarrow=False
+                )],
+                hoverlabel=dict(
+                    bgcolor='#161b22',
+                    font_size=14,
+                    font_family='Inter'
+                )
+            )
+            
+            st.plotly_chart(fig_ou, use_container_width=True)
         
         with col2:
-            if result and 'resultado' in result:
-                probs = result['resultado'].get('random_forest', {}).get('probabilidades', {})
-                draw_prob = probs.get('Draw', 0) / 100
-                st.plotly_chart(create_probability_gauge('Draw', draw_prob, '#ff7f0e'), 
-                              use_container_width=True)
-        
-        with col3:
-            if result and 'resultado' in result:
-                probs = result['resultado'].get('random_forest', {}).get('probabilidades', {})
-                away_win_prob = probs.get('Away Win', 0) / 100
-                st.plotly_chart(create_probability_gauge('Away Win', away_win_prob, '#2ca02c'), 
-                              use_container_width=True)
-        
-        # ═══════════════════════════════════════════════════
-        # SECCION 3: DETALLES TÉCNICOS
-        # ═══════════════════════════════════════════════════
-        
-        st.markdown("### 🔬 Detalles Técnicos")
-        
-        tab1, tab2, tab3 = st.tabs(["Random Forest", "Gradient Boosting", "Goles & BTTS"])
-        
-        with tab1:
-            if result and 'resultado' in result:
-                rf_result = result['resultado'].get('random_forest', {})
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.metric(
-                        "Predicción",
-                        rf_result.get('prediccion', 'N/A')
-                    )
-                
-                with col2:
-                    st.metric(
-                        "Confianza",
-                        f"{rf_result.get('confianza', 0):.1f}%"
-                    )
-                
-                # Probabilidades
-                probs = rf_result.get('probabilidades', {})
-                st.bar_chart(pd.DataFrame({
-                    'Outcome': list(probs.keys()),
-                    'Probability %': list(probs.values())
-                }).set_index('Outcome'))
-        
-        with tab2:
-            if result and 'resultado' in result:
-                gb_result = result['resultado'].get('gradient_boosting', {})
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.metric(
-                        "Predicción",
-                        gb_result.get('prediccion', 'N/A')
-                    )
-                
-                with col2:
-                    st.metric(
-                        "Confianza",
-                        f"{gb_result.get('confianza', 0):.1f}%"
-                    )
-                
-                # Probabilidades
-                probs = gb_result.get('probabilidades', {})
-                st.bar_chart(pd.DataFrame({
-                    'Outcome': list(probs.keys()),
-                    'Probability %': list(probs.values())
-                }).set_index('Outcome'))
-        
-        with tab3:
-            if result and 'goles_totales' in result:
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric(
-                        "Goles Totales (Pred)",
-                        f"{result['goles_totales'].get('promedio', 0):.2f}"
-                    )
-                
-                with col2:
-                    st.metric(
-                        "Over/Under 2.5",
-                        f"{result['goles_totales'].get('over_2_5', 0):.1%}"
-                    )
-                
-                with col3:
-                    st.metric(
-                        "BTTS Prob",
-                        f"{result.get('btts', {}).get('probabilidad', 0):.1%}"
-                    )
+            st.markdown("#### 🎯 Both Teams to Score (BTTS)")
+            
+            # Obtener probabilidad BTTS
+            btts_prob = 0.5
+            if result and 'ambos_anotan' in result:
+                btts_promedio = result['ambos_anotan'].get('promedio', {})
+                btts_prob = btts_promedio.get('si', 50) / 100
+            
+            btts_si_pct = btts_prob * 100
+            btts_no_pct = (1 - btts_prob) * 100
+            
+            # Crear gráfico de dona
+            fig_btts = go.Figure(data=[go.Pie(
+                labels=['Sí', 'No'],
+                values=[btts_si_pct, btts_no_pct],
+                hole=0.6,
+                marker=dict(colors=['#667eea', '#8b949e']),
+                textinfo='label+percent',
+                textfont=dict(size=13, family='Inter', color='white'),
+                hovertemplate='<b>%{label}</b><br>Probabilidad: %{value:.1f}%<extra></extra>'
+            )])
+            
+            fig_btts.update_layout(
+                height=250,
+                margin=dict(l=20, r=20, t=20, b=20),
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                showlegend=False,
+                annotations=[dict(
+                    text='BTTS',
+                    x=0.5, y=0.5,
+                    font=dict(size=20, family='Inter', color='#c9d1d9'),
+                    showarrow=False
+                )],
+                hoverlabel=dict(
+                    bgcolor='#161b22',
+                    font_size=14,
+                    font_family='Inter'
+                )
+            )
+            
+            st.plotly_chart(fig_btts, use_container_width=True)
         
         # ═══════════════════════════════════════════════════
-        # SECCION 4: COMPARACIÓN MODELO VS MERCADO
+        # SECCION 3: COMPARACIÓN MODELO VS MERCADO
         # ═══════════════════════════════════════════════════
         
         st.markdown("### 💰 Análisis de Value Betting")
         
-        # Crear datos para análisis
-        market_odds = {
-            'Home Win': home_win_odds,
-            'Draw': draw_odds,
-            'Away Win': away_win_odds
-        }
+        # TAB 1: Análisis 1X2
+        tab1x2, tabou, tabbtts = st.tabs(["1X2", "Over/Under 2.5", "BTTS"])
         
-        # Obtener probabilidades del modelo (promedio de RF y GB)
-        if result and 'resultado' in result:
-            probs_rf = result['resultado'].get('random_forest', {}).get('probabilidades', {})
-            probs_gb = result['resultado'].get('gradient_boosting', {}).get('probabilidades', {})
+        # ─── TAB 1X2 ───
+        with tab1x2:
+            # Crear datos para análisis
+            market_odds = {
+                'Home Win': home_win_odds,
+                'Draw': draw_odds,
+                'Away Win': away_win_odds
+            }
             
-            # Crear tabla de análisis
-            analysis_data = []
-            
-            outcomes = ['Home Win', 'Draw', 'Away Win']
-            colors = ['🟢', '🟡', '🔴']  # Green, yellow, red
-            
-            for outcome, color in zip(outcomes, colors):
-                prob_rf = probs_rf.get(outcome, 0) / 100
-                prob_gb = probs_gb.get(outcome, 0) / 100
-                prob_avg = (prob_rf + prob_gb) / 2
-                odds = market_odds.get(outcome, 0)
+            # Obtener probabilidades del modelo (promedio de RF y GB)
+            if result and 'resultado' in result:
+                probs_rf = result['resultado'].get('random_forest', {}).get('probabilidades', {})
+                probs_gb = result['resultado'].get('gradient_boosting', {}).get('probabilidades', {})
                 
-                if odds > 0:
-                    implied_prob = 1 / odds
-                    edge = prob_avg - implied_prob
-                    expected_value = (prob_avg * (odds - 1)) - (1 - prob_avg)
+                # Crear tabla de análisis
+                analysis_data = []
+                
+                outcomes = ['Home Win', 'Draw', 'Away Win']
+                
+                for outcome in outcomes:
+                    prob_rf = probs_rf.get(outcome, 0) / 100
+                    prob_gb = probs_gb.get(outcome, 0) / 100
+                    prob_avg = (prob_rf + prob_gb) / 2
+                    odds = market_odds.get(outcome, 0)
                     
-                    # Recomendación basada en edge y EV
-                    if edge > 0.05 and expected_value > 0.10:
-                        recommendation = "✅ STRONG BET"
-                        rec_color = "🟢"
-                    elif edge > 0.03 and expected_value > 0.05:
-                        recommendation = "👍 BET"
-                        rec_color = "🟢"
-                    elif edge > 0 and expected_value > 0:
-                        recommendation = "⚠️ MAYBE"
-                        rec_color = "🟡"
-                    else:
-                        recommendation = "❌ PASS"
-                        rec_color = "🔴"
-                    
-                    analysis_data.append({
-                        'Resultado': outcome,
-                        'Modelo RF': f"{prob_rf:.1%}",
-                        'Modelo GB': f"{prob_gb:.1%}",
-                        'Promedio': f"{prob_avg:.1%}",
-                        'Cuota Mercado': f"{odds:.2f}",
-                        'Prob. Implícita': f"{implied_prob:.1%}",
-                        'Edge': f"{edge:+.2%}",
-                        'EV': f"{expected_value:+.2%}",
-                        'Recomendación': recommendation
-                    })
-            
-            df_analysis = pd.DataFrame(analysis_data)
-            st.dataframe(df_analysis, use_container_width=True, hide_index=True)
-            
-            # Explicación de términos
-            with st.expander("📚 ¿Qué significan estos términos?"):
-                st.markdown("""
-                **Modelo RF/GB:** Probabilidad predicha por cada modelo (0-100%)
+                    if odds > 0:
+                        implied_prob = 1 / odds
+                        edge = prob_avg - implied_prob
+                        expected_value = (prob_avg * (odds - 1)) - (1 - prob_avg)
+                        
+                        # Recomendación basada en edge y EV
+                        if edge > 0.05 and expected_value > 0.10:
+                            recommendation = "✅ STRONG BET"
+                        elif edge > 0.03 and expected_value > 0.05:
+                            recommendation = "👍 BET"
+                        elif edge > 0 and expected_value > 0:
+                            recommendation = "⚠️ MAYBE"
+                        else:
+                            recommendation = "❌ PASS"
+                        
+                        analysis_data.append({
+                            'Resultado': outcome,
+                            'Modelo RF': f"{prob_rf:.1%}",
+                            'Modelo GB': f"{prob_gb:.1%}",
+                            'Promedio': f"{prob_avg:.1%}",
+                            'Cuota': f"{odds:.2f}",
+                            'Prob. Implícita': f"{implied_prob:.1%}",
+                            'Edge': f"{edge:+.2%}",
+                            'EV': f"{expected_value:+.2%}",
+                            'Recomendación': recommendation
+                        })
                 
-                **Promedio:** Probabilidad promedio de ambos modelos
-                
-                **Cuota Mercado:** Cuota ingresada manualmente (odds del mercado)
-                
-                **Prob. Implícita:** Probabilidad que el mercado está asignando (1/cuota)
-                
-                **Edge:** Ventaja del modelo sobre el mercado
-                - Positivo = modelo tiene ventaja
-                - Negativo = mercado tiene ventaja
-                
-                **EV (Expected Value):** Ganancia esperada a largo plazo
-                - EV = (Prob. Modelo × (Cuota - 1)) - (1 - Prob. Modelo)
-                - EV > 10% = Excelente oportunidad
-                - EV > 5% = Buena oportunidad
-                - EV > 0% = Valor positivo
-                
-                **Recomendación:**
-                - ✅ STRONG BET: Edge >5% y EV >10%
-                - 👍 BET: Edge >3% y EV >5%
-                - ⚠️ MAYBE: Edge >0% y EV >0%
-                - ❌ PASS: No hay ventaja
-                """)
+                df_analysis = pd.DataFrame(analysis_data)
+                st.dataframe(df_analysis, use_container_width=True, hide_index=True)
         
-        # ═══════════════════════════════════════════════════
-        # SECCION 5: ANÁLISIS DE GOLES Y BTTS
-        # ═══════════════════════════════════════════════════
-        
-        st.markdown("### ⚽ Análisis Goles y BTTS")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Over/Under 2.5 Goles")
-            
-            # Obtener probabilidad Over con fallback
-            over_prob = 0.5
+        # ─── TAB OVER/UNDER ───
+        with tabou:
             if result and 'goles_totales' in result:
                 goles_pred = result['goles_totales'].get('promedio', 2.5)
-                over_prob = result['goles_totales'].get('over_2_5', 0.5)
+                
+                # Calcular probabilidades
+                if goles_pred > 2.5:
+                    over_prob = 0.5 + min((goles_pred - 2.5) * 0.15, 0.45)
+                else:
+                    over_prob = 0.5 - min((2.5 - goles_pred) * 0.15, 0.45)
+                
+                ou_data = []
+                
+                for market, odds in [('Over 2.5', over_2_5_odds), ('Under 2.5', under_2_5_odds)]:
+                    prob_model = over_prob if 'Over' in market else (1 - over_prob)
+                    
+                    if odds > 0:
+                        implied_prob = 1 / odds
+                        edge = prob_model - implied_prob
+                        expected_value = (prob_model * (odds - 1)) - (1 - prob_model)
+                        
+                        if edge > 0.05 and expected_value > 0.10:
+                            recommendation = "✅ STRONG BET"
+                        elif edge > 0.03 and expected_value > 0.05:
+                            recommendation = "👍 BET"
+                        elif edge > 0 and expected_value > 0:
+                            recommendation = "⚠️ MAYBE"
+                        else:
+                            recommendation = "❌ PASS"
+                        
+                        ou_data.append({
+                            'Mercado': market,
+                            'Goles Pred': f"{goles_pred:.2f}",
+                            'Prob. Modelo': f"{prob_model:.1%}",
+                            'Cuota': f"{odds:.2f}",
+                            'Prob. Implícita': f"{implied_prob:.1%}",
+                            'Edge': f"{edge:+.2%}",
+                            'EV': f"{expected_value:+.2%}",
+                            'Recomendación': recommendation
+                        })
+                
+                df_ou = pd.DataFrame(ou_data)
+                st.dataframe(df_ou, use_container_width=True, hide_index=True)
+        
+        # ─── TAB BTTS ───
+        with tabbtts:
+            if result and 'ambos_anotan' in result:
+                btts_promedio = result['ambos_anotan'].get('promedio', {})
+                btts_prob = btts_promedio.get('si', 50) / 100
+                
+                btts_data = []
+                
+                for market, odds in [('BTTS Sí', both_score_yes), ('BTTS No', both_score_no)]:
+                    prob_model = btts_prob if 'Sí' in market else (1 - btts_prob)
+                    
+                    if odds > 0:
+                        implied_prob = 1 / odds
+                        edge = prob_model - implied_prob
+                        expected_value = (prob_model * (odds - 1)) - (1 - prob_model)
+                        
+                        if edge > 0.05 and expected_value > 0.10:
+                            recommendation = "✅ STRONG BET"
+                        elif edge > 0.03 and expected_value > 0.05:
+                            recommendation = "👍 BET"
+                        elif edge > 0 and expected_value > 0:
+                            recommendation = "⚠️ MAYBE"
+                        else:
+                            recommendation = "❌ PASS"
+                        
+                        btts_data.append({
+                            'Mercado': market,
+                            'Prob. Modelo': f"{prob_model:.1%}",
+                            'Cuota': f"{odds:.2f}",
+                            'Prob. Implícita': f"{implied_prob:.1%}",
+                            'Edge': f"{edge:+.2%}",
+                            'EV': f"{expected_value:+.2%}",
+                            'Recomendación': recommendation
+                        })
+                
+                df_btts = pd.DataFrame(btts_data)
+                st.dataframe(df_btts, use_container_width=True, hide_index=True)
+        
+        # Explicación de términos
+        with st.expander("📚 ¿Qué significan estos términos?"):
+            st.markdown("""
+            **Modelo RF/GB:** Probabilidad predicha por cada modelo (0-100%)
+            
+            **Promedio:** Probabilidad promedio de ambos modelos
+            
+            **Cuota:** Cuota ingresada manualmente (odds del mercado)
+            
+            **Prob. Implícita:** Probabilidad que el mercado está asignando (1/cuota)
+            
+            **Edge:** Ventaja del modelo sobre el mercado
+            - Positivo = modelo tiene ventaja
+            - Negativo = mercado tiene ventaja
+            
+            **EV (Expected Value):** Ganancia esperada a largo plazo
+            - EV = (Prob. Modelo × (Cuota - 1)) - (1 - Prob. Modelo)
+            - EV > 10% = Excelente oportunidad
+            - EV > 5% = Buena oportunidad
+            - EV > 0% = Valor positivo
+            
+            **Recomendación:**
+            - ✅ STRONG BET: Edge >5% y EV >10%
+            - 👍 BET: Edge >3% y EV >5%
+            - ⚠️ MAYBE: Edge >0% y EV >0%
+            - ❌ PASS: No hay ventaja
+            """)
+        
+        # ═══════════════════════════════════════════════════
+        # GUARDAR PREDICCIÓN EN CSV
+        # ═══════════════════════════════════════════════════
+        
+        try:
+            # Crear registro de la predicción
+            prediction_record = {
+                'date': match_date_str,
+                'home_team': home_team,
+                'away_team': away_team,
+                'home_win_odds': home_win_odds,
+                'draw_odds': draw_odds,
+                'away_win_odds': away_win_odds,
+                'over_2_5_odds': over_2_5_odds,
+                'under_2_5_odds': under_2_5_odds,
+                'both_score_yes': both_score_yes,
+                'both_score_no': both_score_no
+            }
+            
+            # Leer CSV existente
+            csv_path = Path('data/processed/odds_history.csv')
+            if csv_path.exists():
+                df_history = pd.read_csv(csv_path)
             else:
-                goles_pred = 2.5
+                df_history = pd.DataFrame()
             
-            # Análisis OU - SIEMPRE mostrar si hay cuotas
-            if over_2_5_odds > 0 and under_2_5_odds > 0:
-                ou_analysis = pd.DataFrame({
-                    'Mercado': ['Over 2.5', 'Under 2.5'],
-                    'Cuota': [over_2_5_odds, under_2_5_odds],
-                    'Prob. Implícita': [f"{1/over_2_5_odds:.1%}", f"{1/under_2_5_odds:.1%}"],
-                    'Prob. Modelo': [f"{over_prob:.1%}", f"{1-over_prob:.1%}"],
-                    'Edge': [f"{over_prob - (1/over_2_5_odds):+.2%}", 
-                            f"{(1-over_prob) - (1/under_2_5_odds):+.2%}"]
-                })
-                st.dataframe(ou_analysis, use_container_width=True, hide_index=True)
-            else:
-                st.warning("⚠️ Ingresa las cuotas Over/Under en el sidebar para análisis")
+            # Agregar nuevo registro
+            df_new_record = pd.DataFrame([prediction_record])
+            df_history = pd.concat([df_history, df_new_record], ignore_index=True)
             
-            st.metric("Goles Predichos", f"{goles_pred:.2f}")
-        
-        with col2:
-            st.subheader("Both Teams to Score (BTTS)")
+            # Guardar CSV
+            df_history.to_csv(csv_path, index=False)
             
-            # Obtener probabilidad BTTS con fallback
-            btts_prob = 0.5
-            if result and 'btts' in result:
-                btts_prob = result['btts'].get('probabilidad', 0.5)
-            
-            # Análisis BTTS - SIEMPRE mostrar si hay cuotas
-            if both_score_yes > 0 and both_score_no > 0:
-                btts_analysis = pd.DataFrame({
-                    'Mercado': ['Sí', 'No'],
-                    'Cuota': [both_score_yes, both_score_no],
-                    'Prob. Implícita': [f"{1/both_score_yes:.1%}", f"{1/both_score_no:.1%}"],
-                    'Prob. Modelo': [f"{btts_prob:.1%}", f"{1-btts_prob:.1%}"],
-                    'Edge': [f"{btts_prob - (1/both_score_yes):+.2%}", 
-                            f"{(1-btts_prob) - (1/both_score_no):+.2%}"]
-                })
-                st.dataframe(btts_analysis, use_container_width=True, hide_index=True)
-                st.metric("Probabilidad BTTS", f"{btts_prob:.1%}")
-            else:
-                st.warning("⚠️ Ingresa las cuotas BTTS (Sí/No) en el sidebar para análisis")
-                st.metric("Probabilidad BTTS", f"{btts_prob:.1%}")
-        
-        # ═══════════════════════════════════════════════════
-        # SECCION 6: RESUMEN DE OPORTUNIDADES
-        # ═══════════════════════════════════════════════════
-        
-        st.markdown("### 🎯 Resumen de Oportunidades")
-        
-        # Contar oportunidades
-        strong_bets = df_analysis[df_analysis['Recomendación'] == '✅ STRONG BET'].shape[0]
-        good_bets = df_analysis[df_analysis['Recomendación'] == '👍 BET'].shape[0]
-        maybe_bets = df_analysis[df_analysis['Recomendación'] == '⚠️ MAYBE'].shape[0]
-        pass_bets = df_analysis[df_analysis['Recomendación'] == '❌ PASS'].shape[0]
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("🟢 Strong Bet", strong_bets)
-        with col2:
-            st.metric("👍 Good Bet", good_bets)
-        with col3:
-            st.metric("🟡 Maybe", maybe_bets)
-        with col4:
-            st.metric("❌ Pass", pass_bets)
-        
-        # ═══════════════════════════════════════════════════
-        # SECCION 7: DATOS RAW (EXPANDER)
-        # ═══════════════════════════════════════════════════
-        
-        with st.expander("📋 Datos Completos de Predicción (JSON)"):
-            st.json(result)
+        except Exception as e:
+            st.warning(f"⚠️ No se pudo guardar en histórico: {str(e)}")
         
         # Success message
         st.success("✅ Predicción completada exitosamente")
@@ -645,99 +739,3 @@ else:
             </ul>
         </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown("### 📋 Cómo Usar el Dashboard")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        **Paso 1: Selecciona Equipos**
-        - 🏠 Equipo local
-        - ✈️ Equipo visitante
-        - 📅 Fecha del partido
-        
-        **Paso 2: Ingresa Cuotas**
-        - Expande "💰 Ingresar Odds" en sidebar
-        - Ingresa las cuotas del mercado:
-          - 🏠 Victoria Local
-          - 🤝 Empate
-          - ✈️ Victoria Visitante
-          - ⚽ Over/Under 2.5
-          - 🎯 BTTS (Sí/No)
-        """)
-    
-    with col2:
-        st.markdown("""
-        **Paso 3: Predecir**
-        - Click en "🔮 PREDECIR PARTIDO"
-        - Espera carga de modelos (~3s)
-        
-        **Paso 4: Analiza**
-        - Ver probabilidades del modelo
-        - Analizar Value Betting
-        - Revisar recomendaciones
-        - Explorar goles y BTTS
-        """)
-    
-    # Información de cuotas
-    st.markdown("### 💰 Dónde Obtener Cuotas")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        **Casas de Apuestas Principales:**
-        - Betfair
-        - Bet365
-        - William Hill
-        - Pinnacle
-        - Unibet
-        """)
-    
-    with col2:
-        st.markdown("""
-        **Agregadores de Odds:**
-        - OddsPortal
-        - BetBrain
-        - SofaScore
-        - Flashscore
-        """)
-    
-    # Mostrar estadísticas del dataset
-    if df_historical is not None:
-        st.markdown("### 📊 Dataset Disponible")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("📊 Partidos en BD", len(df_historical))
-        
-        with col2:
-            st.metric("👥 Equipos", len(set(df_historical['HomeTeam'].unique()) | set(df_historical['AwayTeam'].unique())))
-        
-        with col3:
-            st.metric("📅 Años", f"{df_historical['MatchDate'].min()[:4]} - {df_historical['MatchDate'].max()[:4]}")
-        
-        with col4:
-            st.metric("⚙️ Features", 25)
-    
-    # Información de valores por defecto
-    st.info(
-        """
-        **💡 Valores por Defecto:** Los campos de cuotas tienen valores por defecto para demostración.
-        Para análisis real, ingresa las cuotas del mercado actual de tu casa de apuestas preferida.
-        """
-    )
-
-
-# ═════════════════════════════════════════════════════════════════
-# FOOTER
-# ═════════════════════════════════════════════════════════════════
-
-st.markdown("---")
-st.markdown("""
-    <div style='text-align: center; color: #8b949e; font-size: 12px; margin-top: 20px;'>
-        <p>⚽ EPL Predictor v1.0 | ML Models: Random Forest + Gradient Boosting</p>
-        <p>Desarrollado con ❤️ usando Streamlit</p>
-    </div>
-""", unsafe_allow_html=True)
