@@ -39,8 +39,6 @@ venv/
 ENV/
 
 # Data - Local files (muy grandes o temporales)
-data/raw/*.csv
-data/processed/*.csv
 data/processed/*.json
 *.xlsx
 *.db

@@ -17,7 +17,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from sklearn.metrics import mean_absolute_error, r2_score
 import pickle
+import json
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -122,7 +124,7 @@ def create_enhanced_features(df):
     return features, df
 
 def train_models_improved(X_train, X_test, y_result_train, y_result_test, 
-                         y_goals_train, y_goals_test):
+                         y_goals_train, y_goals_test, y_btts_train, y_btts_test):
     """
     Entrena modelos mejorados con class_weight balanced.
     """
@@ -213,13 +215,53 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     print(f"   MAE:  {mean_absolute_error(y_goals_test, y_pred_goals_gb):.4f}")
     print(f"   R²:   {r2_score(y_goals_test, y_pred_goals_gb):.4f}")
     
-    return rf_result, gb_result, rf_goals, gb_goals, scaler
+    # ===== RANDOM FOREST (BTTS) =====
+    print("\n5. RANDOM FOREST (BTTS)")
+    
+    rf_btts = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=12,
+        min_samples_split=8,
+        min_samples_leaf=3,
+        class_weight='balanced',
+        random_state=42,
+        n_jobs=-1
+    )
+    rf_btts.fit(X_train_scaled, y_btts_train)
+    y_pred_btts_rf = rf_btts.predict(X_test_scaled)
+    
+    print(f"   Accuracy:  {accuracy_score(y_btts_test, y_pred_btts_rf):.4f}")
+    print(f"   Precision: {precision_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0):.4f}")
+    print(f"   Recall:    {recall_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0):.4f}")
+    print(f"   F1-Score:  {f1_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0):.4f}")
+    
+    # ===== GRADIENT BOOSTING (BTTS) =====
+    print("\n6. GRADIENT BOOSTING (BTTS)")
+    
+    gb_btts = GradientBoostingClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=5,
+        min_samples_split=8,
+        min_samples_leaf=3,
+        subsample=0.8,
+        random_state=42
+    )
+    gb_btts.fit(X_train_scaled, y_btts_train)
+    y_pred_btts_gb = gb_btts.predict(X_test_scaled)
+    
+    print(f"   Accuracy:  {accuracy_score(y_btts_test, y_pred_btts_gb):.4f}")
+    print(f"   Precision: {precision_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0):.4f}")
+    print(f"   Recall:    {recall_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0):.4f}")
+    print(f"   F1-Score:  {f1_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0):.4f}")
+    
+    return rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler
 
-def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, scaler):
+def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler):
     """Guardar modelos mejorados sobrescribiendo los antiguos."""
     
     print("\n" + "="*70)
-    print("💾 GUARDANDO MODELOS MEJORADOS")
+    print("GUARDANDO MODELOS MEJORADOS")
     print("="*70 + "\n")
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -229,6 +271,8 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, scaler):
         'gb_result_model.pkl': gb_result,
         'rf_goals_model.pkl': rf_goals,
         'gb_goals_model.pkl': gb_goals,
+        'rf_btts_model.pkl': rf_btts,
+        'gb_btts_model.pkl': gb_btts,
         'scaler_model.pkl': scaler,
     }
     
@@ -236,9 +280,9 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, scaler):
         try:
             with open(MODELS_PATH / filename, 'wb') as f:
                 pickle.dump(model, f)
-            print(f"   ✅ {filename}")
+            print(f"   [OK] {filename}")
         except Exception as e:
-            print(f"   ❌ Error guardando {filename}: {e}")
+            print(f"   [ERROR] Error guardando {filename}: {e}")
             return False
     
     # Guardar timestamp de entrenamiento
@@ -249,7 +293,7 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, scaler):
         f.write(f"  • Features adicionales mejoradas\n")
         f.write(f"  • Hiperparámetros optimizados\n")
     
-    print(f"\n🎉 Modelos mejorados guardados exitosamente")
+    print(f"\n[OK] Modelos mejorados guardados exitosamente")
     print(f"   Timestamp: {timestamp}")
     
     return True
@@ -276,12 +320,14 @@ def main():
     result_map = {'A': 0, 'D': 1, 'H': 2}
     y_result = df_processed['FullTimeResult'].map(result_map)
     y_goals = df_processed['FullTimeHomeGoals'] + df_processed['FullTimeAwayGoals']
+    y_btts = ((df_processed['FullTimeHomeGoals'] > 0) & (df_processed['FullTimeAwayGoals'] > 0)).astype(int)
     
     # Train/test split (temporal)
     split_idx = int(len(X) * 0.85)
     X_train, X_test = X[:split_idx], X[split_idx:]
     y_result_train, y_result_test = y_result[:split_idx], y_result[split_idx:]
     y_goals_train, y_goals_test = y_goals[:split_idx], y_goals[split_idx:]
+    y_btts_train, y_btts_test = y_btts[:split_idx], y_btts[split_idx:]
     
     print(f"\n📊 Split train/test:")
     print(f"   Train: {len(X_train)} partidos")
@@ -289,12 +335,12 @@ def main():
     print(f"   Features: {X.shape[1]}")
     
     # Entrenar modelos mejorados
-    rf_result, gb_result, rf_goals, gb_goals, scaler = train_models_improved(
-        X_train, X_test, y_result_train, y_result_test, y_goals_train, y_goals_test
+    rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler = train_models_improved(
+        X_train, X_test, y_result_train, y_result_test, y_goals_train, y_goals_test, y_btts_train, y_btts_test
     )
     
     # Guardar
-    if save_models_improved(rf_result, gb_result, rf_goals, gb_goals, scaler):
+    if save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler):
         print("\n" + "="*70)
         print("✅ REENTRENAMIENTO COMPLETADO")
         print("="*70)

@@ -50,14 +50,23 @@ def get_model_predictions(home_team, away_team, date):
         )
         
         if result.returncode != 0:
+            print(f"[WARN] Error ejecutando predict_match.py:")
+            print(f"    STDOUT: {result.stdout}")
+            print(f"    STDERR: {result.stderr}")
             return None
         
         # Parse the output to extract prediction data
         output = result.stdout
         prediction = parse_prediction_output(output, home_team, away_team)
+        
+        if prediction is None:
+            print(f"[WARN] No se pudo parsear la prediccion para {home_team} vs {away_team}")
+            print(f"    Output recibido:")
+            print(f"    {output[:500]}")  # Primeros 500 caracteres
+        
         return prediction
     except Exception as e:
-        print(f"⚠️  Error prediciendo {home_team} vs {away_team}: {e}")
+        print(f"[WARN] Error prediciendo {home_team} vs {away_team}: {e}")
         return None
 
 
@@ -81,9 +90,17 @@ def parse_prediction_output(output, home_team, away_team):
             'promedio': None
         }
         
+        prediction['ambos_anotan'] = {
+            'random_forest': {'si': 0, 'no': 0},
+            'gradient_boosting': {'si': 0, 'no': 0},
+            'promedio': {'si': 0, 'no': 0}
+        }
+        
         current_model = None
         goals_section = False
+        btts_section = False
         goals_pattern = re.compile(r':\s*([0-9]+(?:\.[0-9]+)?)')
+        btts_pattern = re.compile(r'([0-9]+(?:\.[0-9]+)?)\s*%')
         
         for line in lines:
             line_stripped = line.strip()
@@ -96,6 +113,12 @@ def parse_prediction_output(output, home_team, away_team):
 
             if '⚽ GOLES TOTALES' in line_stripped:
                 goals_section = True
+                btts_section = False
+                continue
+            
+            if '🥅 AMBOS ANOTAN' in line_stripped:
+                btts_section = True
+                goals_section = False
                 continue
 
             if goals_section:
@@ -115,8 +138,28 @@ def parse_prediction_output(output, home_team, away_team):
                         prediction['goles_totales']['promedio'] = float(match.group(1))
                     continue
             
+            if btts_section:
+                if 'Random Forest:' in line_stripped:
+                    matches = btts_pattern.findall(line_stripped)
+                    if len(matches) >= 2:
+                        prediction['ambos_anotan']['random_forest']['si'] = float(matches[0])
+                        prediction['ambos_anotan']['random_forest']['no'] = float(matches[1])
+                    continue
+                if 'Gradient Boosting:' in line_stripped:
+                    matches = btts_pattern.findall(line_stripped)
+                    if len(matches) >= 2:
+                        prediction['ambos_anotan']['gradient_boosting']['si'] = float(matches[0])
+                        prediction['ambos_anotan']['gradient_boosting']['no'] = float(matches[1])
+                    continue
+                if 'Promedio:' in line_stripped or '📈 Promedio:' in line_stripped:
+                    matches = btts_pattern.findall(line_stripped)
+                    if len(matches) >= 2:
+                        prediction['ambos_anotan']['promedio']['si'] = float(matches[0])
+                        prediction['ambos_anotan']['promedio']['no'] = float(matches[1])
+                    continue
+            
             # Parsear línea con "Away X% | Draw X% | Home X%"
-            if current_model and 'Away' in line_stripped and '%' in line_stripped and '|' in line_stripped:
+            if current_model and 'Away' in line_stripped and '%' in line_stripped and '|' in line_stripped and not btts_section:
                 try:
                     # Formato: "Detalles: Away 76.9% | Draw 15.6% | Home 7.5%"
                     # Remover "Detalles: " si existe
@@ -199,8 +242,18 @@ def get_total_goals(prediction):
         return 2.5
 
 
+def get_btts_probs(prediction):
+    """Extrae probabilidades de BTTS"""
+    try:
+        if 'ambos_anotan' in prediction:
+            return prediction['ambos_anotan'].get('promedio', {'si': 50, 'no': 50})
+        return {'si': 50, 'no': 50}
+    except:
+        return {'si': 50, 'no': 50}
+
+
 def analyze_single_match(comparator, home_team, away_team, date, model_probs, 
-                        total_goals, odds_row):
+                        total_goals, odds_row, btts_probs=None):
     """Analiza un partido individual"""
     
     odds = {
@@ -209,6 +262,8 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         'away_win_odds': odds_row['away_win_odds'],
         'over_2_5_odds': odds_row['over_2_5_odds'],
         'under_2_5_odds': odds_row['under_2_5_odds'],
+        'both_score_yes': odds_row.get('both_score_yes', 0),
+        'both_score_no': odds_row.get('both_score_no', 0),
     }
     
     market_probs = {
@@ -228,13 +283,13 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         ev = (model_prob * odds_val) - 1
         
         if edge > 0.03 and ev > 0.10:
-            rec = "🟢 BET"
+            rec = "[BET]"
         elif edge > 0 and ev > 0.05:
-            rec = "🟡 CONSIDER"
+            rec = "[CONSIDER]"
         elif edge > 0:
-            rec = "🔵 MONITOR"
+            rec = "[MONITOR]"
         else:
-            rec = "❌ SKIP"
+            rec = "[SKIP]"
         
         results.append({
             'outcome': outcome,
@@ -269,30 +324,75 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
     over_ev = (over_model_prob * odds['over_2_5_odds']) - 1
     under_ev = (under_model_prob * odds['under_2_5_odds']) - 1
     
-    return results, over_model_prob, over_edge, over_ev, under_model_prob, under_edge, under_ev, odds
+    # Análisis BTTS
+    btts_results = []
+    if btts_probs and odds['both_score_yes'] > 0:
+        # BTTS Yes
+        btts_yes_prob = btts_probs['si'] / 100
+        btts_yes_market = 1 / odds['both_score_yes']
+        btts_yes_edge = btts_yes_prob - btts_yes_market
+        btts_yes_ev = (btts_yes_prob * odds['both_score_yes']) - 1
+        
+        btts_yes_rec = "[BET]" if btts_yes_edge > 0.03 and btts_yes_ev > 0.10 else \
+                       "[CONSIDER]" if btts_yes_edge > 0 and btts_yes_ev > 0.05 else \
+                       "[MONITOR]" if btts_yes_edge > 0 else "[SKIP]"
+        
+        btts_results.append({
+            'outcome': 'BTTS Yes',
+            'model_prob': btts_yes_prob,
+            'market_prob': btts_yes_market,
+            'odds': odds['both_score_yes'],
+            'edge': btts_yes_edge,
+            'ev': btts_yes_ev,
+            'rec': btts_yes_rec
+        })
+        
+        # BTTS No
+        btts_no_prob = btts_probs['no'] / 100
+        btts_no_market = 1 / odds['both_score_no']
+        btts_no_edge = btts_no_prob - btts_no_market
+        btts_no_ev = (btts_no_prob * odds['both_score_no']) - 1
+        
+        btts_no_rec = "[BET]" if btts_no_edge > 0.03 and btts_no_ev > 0.10 else \
+                      "[CONSIDER]" if btts_no_edge > 0 and btts_no_ev > 0.05 else \
+                      "[MONITOR]" if btts_no_edge > 0 else "[SKIP]"
+        
+        btts_results.append({
+            'outcome': 'BTTS No',
+            'model_prob': btts_no_prob,
+            'market_prob': btts_no_market,
+            'odds': odds['both_score_no'],
+            'edge': btts_no_edge,
+            'ev': btts_no_ev,
+            'rec': btts_no_rec
+        })
+    
+    return results, over_model_prob, over_edge, over_ev, under_model_prob, under_edge, under_ev, odds, btts_results
 
 
 def print_match_analysis(comparator, home_team, away_team, date, model_probs, 
-                        total_goals, odds_row, match_num, total_matches):
+                        total_goals, odds_row, match_num, total_matches, btts_probs=None):
     """Imprime análisis de un partido"""
     
-    print("\n" + "="*120)
-    print(f"📌 PARTIDO {match_num}/{total_matches}: {home_team} vs {away_team} ({date})")
-    print("="*120)
+    print("\n" + "="*70)
+    print(f"[PARTIDO {match_num}/{total_matches}] {home_team} vs {away_team} ({date})")
+    print("="*70)
     
     # Predicciones del modelo
-    print(f"\n📊 PREDICCIONES DEL MODELO:")
+    print(f"\nPREDICCIONES DEL MODELO:")
     print(f"   • {home_team}: {model_probs['Home Win']:.1%}")
     print(f"   • Draw: {model_probs['Draw']:.1%}")
     print(f"   • {away_team}: {model_probs['Away Win']:.1%}")
     print(f"   • Goles totales predichos: {total_goals:.1f}")
+    if btts_probs:
+        print(f"   • Ambos Anotan (BTTS): SI {btts_probs['si']:.1f}% | NO {btts_probs['no']:.1f}%")
     
     # Análisis
-    results, over_prob, over_edge, over_ev, under_prob, under_edge, under_ev, odds = \
+    results, over_prob, over_edge, over_ev, under_prob, under_edge, under_ev, odds, btts_results = \
         analyze_single_match(comparator, home_team, away_team, date, model_probs, 
-                            total_goals, odds_row)
+                            total_goals, odds_row, btts_probs)
     
-    print(f"\n✨ ANÁLISIS 1X2:")
+    print(f"\nANALISIS 1X2:")
     best_result = None
     for r in results:
         print(f"\n   {r['outcome']}:")
@@ -303,58 +403,57 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
         if best_result is None or r['ev'] > best_result['ev']:
             best_result = r
     
-    print(f"\n⚽ ANÁLISIS GOLES (Over/Under 2.5):")
+    print(f"\nANALISIS GOLES (Over/Under 2.5):")
     print(f"\n   Over 2.5:")
     print(f"      Cuota: {odds['over_2_5_odds']:.2f} | Modelo: {over_prob:.1%} vs Mercado: {1/odds['over_2_5_odds']:.1%}")
     print(f"      Edge: {over_edge:+.2%} | EV: {over_ev:+.2%}")
-    over_rec = "🟢 BET" if over_edge > 0.03 and over_ev > 0.10 else \
-               "🟡 CONSIDER" if over_edge > 0 and over_ev > 0.05 else \
-               "🔵 MONITOR" if over_edge > 0 else "❌ SKIP"
+    over_rec = "[BET]" if over_edge > 0.03 and over_ev > 0.10 else \
+               "[CONSIDER]" if over_edge > 0 and over_ev > 0.05 else \
+               "[MONITOR]" if over_edge > 0 else "[SKIP]"
     print(f"      {over_rec}")
     
     print(f"\n   Under 2.5:")
     print(f"      Cuota: {odds['under_2_5_odds']:.2f} | Modelo: {under_prob:.1%} vs Mercado: {1/odds['under_2_5_odds']:.1%}")
     print(f"      Edge: {under_edge:+.2%} | EV: {under_ev:+.2%}")
-    under_rec = "🟢 BET" if under_edge > 0.03 and under_ev > 0.10 else \
-                "🟡 CONSIDER" if under_edge > 0 and under_ev > 0.05 else \
-                "🔵 MONITOR" if under_edge > 0 else "❌ SKIP"
+    under_rec = "[BET]" if under_edge > 0.03 and under_ev > 0.10 else \
+                "[CONSIDER]" if under_edge > 0 and under_ev > 0.05 else \
+                "[MONITOR]" if under_edge > 0 else "[SKIP]"
     print(f"      {under_rec}")
     
+    if btts_results:
+        print(f"\nANALISIS AMBOS ANOTAN (BTTS):")
+        for r in btts_results:
+            print(f"\n   {r['outcome']}:")
+            print(f"      Cuota: {r['odds']:.2f} | Modelo: {r['model_prob']:.1%} vs Mercado: {r['market_prob']:.1%}")
+            print(f"      Edge: {r['edge']:+.2%} | EV: {r['ev']:+.2%}")
+            print(f"      {r['rec']}")
+            
+            if r['ev'] > best_result['ev']:
+                best_result = r
+
     # Mejor oportunidad
-    if best_result and best_result['rec'].startswith('🟢'):
+    if best_result and best_result['rec'].startswith('[BET]'):
         kelly = comparator.calculate_kelly_criterion(best_result['model_prob'], best_result['odds'])
         kelly_quarter = comparator.calculate_kelly_fraction(kelly, 0.25)
         
-        print(f"\n💎 MEJOR OPORTUNIDAD: {best_result['outcome']} a {best_result['odds']:.2f}")
+        print(f"\nMEJOR OPORTUNIDAD: {best_result['outcome']} a {best_result['odds']:.2f}")
         print(f"   Edge: {best_result['edge']:+.2%} | EV: {best_result['ev']:+.2%}")
         print(f"   Kelly 1/4 recomendado: {kelly_quarter:.2%}")
         print(f"   Con 1000€: Apuesta = {kelly_quarter*1000:.2f}€ | Ganancia esperada = {kelly_quarter*1000*best_result['ev']:.2f}€")
 
 
 def main():
-    print("ANÁLISIS INTEGRADO: PREDICCIÓN + COMPARATIVA DE ODDS")
-    print()
+    print("ANALISIS INTEGRADO: PREDICCION + COMPARATIVA DE ODDS")
     
-    # Cargar datos
-    print("\n📥 Cargando partidos y odds...")
     try:
         odds_df = load_odds_and_matches()
-        print(f"✅ {len(odds_df)} partidos cargados")
     except FileNotFoundError:
-        print("❌ Error: Archivo sample_odds.csv no encontrado")
-        print("   Asegúrate de que existe: data/processed/sample_odds.csv")
+        print("[ERROR] Archivo sample_odds.csv no encontrado")
+        print("   Asegurate de que existe: data/processed/sample_odds.csv")
         return
     
     # Inicializar comparador
-    print("⚙️  Inicializando comparador...")
     comparator = OddsComparison(min_edge=0.03, min_ev=0.10, min_confidence=0.50)
-    print("✅ Comparador configurado")
-    
-    print("🤖 Cargando modelo (será ejecutado para cada partido)...")
-    print("✅ Modelo listo\n")
-    
-    # Procesar cada partido
-    print(f"🔍 Analizando {len(odds_df)} partido(s)...\n")
     
     all_bets = []
     
@@ -374,17 +473,18 @@ def main():
             continue
         
         total_goals = get_total_goals(prediction)
+        btts_probs = get_btts_probs(prediction)
         
         # Analizar
         print_match_analysis(comparator, home_team, away_team, date, model_probs, 
-                           total_goals, row, idx, len(odds_df))
+                           total_goals, row, idx, len(odds_df), btts_probs)
         
         # Guardar si es BET
-        results, _, _, _, _, _, _, odds = analyze_single_match(
-            comparator, home_team, away_team, date, model_probs, total_goals, row)
+        results, _, _, _, _, _, _, odds, btts_results = analyze_single_match(
+            comparator, home_team, away_team, date, model_probs, total_goals, row, btts_probs)
         
-        for r in results:
-            if r['rec'].startswith('🟢'):
+        for r in results + btts_results:
+            if r['rec'].startswith('[BET]'):
                 kelly = comparator.calculate_kelly_criterion(r['model_prob'], r['odds'])
                 kelly_quarter = comparator.calculate_kelly_fraction(kelly, 0.25)
                 all_bets.append({
@@ -397,44 +497,9 @@ def main():
                     'kelly_quarter': kelly_quarter
                 })
     
-    # Resumen final
-    # if all_bets:
-    #     print("\n" + "="*120)
-    #     print("📊 RESUMEN: APUESTAS RECOMENDADAS (BET)")
-    #     print("="*120)
-        
-    #     bets_df = pd.DataFrame(all_bets)
-    #     bets_df = bets_df.sort_values('ev', ascending=False)
-        
-    #     print(f"\nTotal de apuestas BET: {len(bets_df)}\n")
-        
-    #     total_ev = 0
-    #     total_kelly = 0
-        
-    #     for idx, bet in bets_df.iterrows():
-    #         print(f"{idx+1}. {bet['match']} ({bet['date']})")
-    #         print(f"   {bet['outcome']} a {bet['odds']:.2f}")
-    #         print(f"   Edge: {bet['edge']:+.2%} | EV: {bet['ev']:+.2%}")
-    #         print(f"   Kelly 1/4: {bet['kelly_quarter']:.2%} → Apuesta: {bet['kelly_quarter']*1000:.2f}€")
-    #         print()
-            
-    #         total_ev += bet['ev']
-    #         total_kelly += bet['kelly_quarter']
-        
-    #     print(f"💰 TOTALES (con 1000€ de bankroll por apuesta):")
-    #     print(f"   • EV promedio: {total_ev/len(bets_df):.2%}")
-    #     print(f"   • Kelly promedio: {total_kelly/len(bets_df):.2%}")
-    #     print(f"   • Inversión total (1/4 Kelly): {(total_kelly/len(bets_df))*1000*len(bets_df):.2f}€")
-    #     print(f"   • Ganancia esperada: {(total_kelly/len(bets_df))*1000*len(bets_df)*(total_ev/len(bets_df)):.2f}€")
-    # else:
-    #     print("\n" + "="*120)
-    #     print("⚠️  NO HAY APUESTAS RECOMENDADAS (BET)")
-    #     print("="*120)
-    #     print("\nTodas las oportunidades están por debajo del umbral de rentabilidad.")
-    
-    print("\n" + "="*120)
-    print("✅ Análisis completado")
-    print("="*120 + "\n")
+    print("\n" + "="*70)
+    print("[OK] Analisis completado")
+    print("="*70 + "\n")
 
 
 if __name__ == '__main__':

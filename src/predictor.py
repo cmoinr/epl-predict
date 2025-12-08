@@ -39,11 +39,13 @@ class EPLPredictor:
             self.gb_result = pickle.load(open(self.models_dir / 'gb_result_model.pkl', 'rb'))
             self.rf_goals = pickle.load(open(self.models_dir / 'rf_goals_model.pkl', 'rb'))
             self.gb_goals = pickle.load(open(self.models_dir / 'gb_goals_model.pkl', 'rb'))
+            self.rf_btts = pickle.load(open(self.models_dir / 'rf_btts_model.pkl', 'rb'))
+            self.gb_btts = pickle.load(open(self.models_dir / 'gb_btts_model.pkl', 'rb'))
             self.scaler = pickle.load(open(self.models_dir / 'scaler_model.pkl', 'rb'))
             
-            print(f'✅ Modelos cargados desde: {self.models_dir}')
+            print(f'[OK] Modelos cargados desde: {self.models_dir}')
         except FileNotFoundError as e:
-            print(f'❌ Error: No se encontraron modelos en {self.models_dir}')
+            print(f'[ERROR] No se encontraron modelos en {self.models_dir}')
             print(f'   Detalle: {e}')
             raise
     
@@ -319,10 +321,14 @@ class EPLPredictor:
         pred_goals_rf = self.rf_goals.predict(X_new_scaled)[0]
         pred_goals_gb = self.gb_goals.predict(X_new_scaled)[0]
         
-        # 5. Mapear código numérico a resultado
+        # 5. PREDICCIÓN DE AMBOS ANOTAN (BTTS)
+        prob_btts_rf = self.rf_btts.predict_proba(X_new_scaled)[0]
+        prob_btts_gb = self.gb_btts.predict_proba(X_new_scaled)[0]
+        
+        # 6. Mapear código numérico a resultado
         result_map = {0: 'Away Win', 1: 'Draw', 2: 'Home Win'}
         
-        # 6. Construir respuesta detallada
+        # 7. Construir respuesta detallada
         return {
             'partido': f'{home_team} vs {away_team}',
             'fecha': match_date,
@@ -350,6 +356,20 @@ class EPLPredictor:
                 'random_forest': float(round(pred_goals_rf, 2)),
                 'gradient_boosting': float(round(pred_goals_gb, 2)),
                 'promedio': float(round((pred_goals_rf + pred_goals_gb) / 2, 2))
+            },
+            'ambos_anotan': {
+                'random_forest': {
+                    'no': float(prob_btts_rf[0] * 100),
+                    'si': float(prob_btts_rf[1] * 100)
+                },
+                'gradient_boosting': {
+                    'no': float(prob_btts_gb[0] * 100),
+                    'si': float(prob_btts_gb[1] * 100)
+                },
+                'promedio': {
+                    'no': float((prob_btts_rf[0] + prob_btts_gb[0]) / 2 * 100),
+                    'si': float((prob_btts_rf[1] + prob_btts_gb[1]) / 2 * 100)
+                }
             }
         }
     
@@ -406,6 +426,11 @@ class EPLPredictor:
         print(f"  🌲 Random Forest: {result['goles_totales']['random_forest']}")
         print(f"  ⚡ Gradient Boosting: {result['goles_totales']['gradient_boosting']}")
         print(f"  📈 Promedio: {result['goles_totales']['promedio']}")
+        
+        print(f"\n🥅 AMBOS ANOTAN (BTTS):")
+        print(f"  🌲 Random Forest: SI {result['ambos_anotan']['random_forest']['si']:.1f}% | NO {result['ambos_anotan']['random_forest']['no']:.1f}%")
+        print(f"  ⚡ Gradient Boosting: SI {result['ambos_anotan']['gradient_boosting']['si']:.1f}% | NO {result['ambos_anotan']['gradient_boosting']['no']:.1f}%")
+        print(f"  📈 Promedio: SI {result['ambos_anotan']['promedio']['si']:.1f}% | NO {result['ambos_anotan']['promedio']['no']:.1f}%")
         
         print(f"\n{'='*70}\n")
 
