@@ -32,7 +32,7 @@ def create_enhanced_features(df):
     Crea features mejoradas que ayudan a distinguir entre Home Win, Draw y Away Win.
     Basadas en análisis de estadísticas reales de equipos.
     """
-    print("\n🔧 Creando features mejoradas...")
+    print("\n[FEATURE] Creando features mejoradas...")
     
     df = df.copy()
     df['MatchDate'] = pd.to_datetime(df['MatchDate'])
@@ -118,8 +118,8 @@ def create_enhanced_features(df):
     # Rellenar NaNs
     features = features.fillna(method='bfill').fillna(features.mean())
     
-    print(f"   ✅ {features.shape[1]} features creadas")
-    print(f"   ✅ Total de muestras: {features.shape[0]}")
+    print(f"   [OK] {features.shape[1]} features creadas")
+    print(f"   [OK] Total de muestras: {features.shape[0]}")
     
     return features, df
 
@@ -139,7 +139,7 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     X_test_scaled = scaler.transform(X_test)
     
     # ===== RANDOM FOREST (con class_weight='balanced') =====
-    print("\n1️⃣  RANDOM FOREST (Resultado 1X2)")
+    print("\n[1] RANDOM FOREST (Resultado 1X2)")
     print("   Configuración: class_weight='balanced'")
     
     rf_result = RandomForestClassifier(
@@ -154,13 +154,18 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     rf_result.fit(X_train_scaled, y_result_train)
     y_pred_rf = rf_result.predict(X_test_scaled)
     
-    print(f"   Accuracy:  {accuracy_score(y_result_test, y_pred_rf):.4f}")
-    print(f"   Precision: {precision_score(y_result_test, y_pred_rf, average='weighted', zero_division=0):.4f}")
-    print(f"   Recall:    {recall_score(y_result_test, y_pred_rf, average='weighted', zero_division=0):.4f}")
-    print(f"   F1-Score:  {f1_score(y_result_test, y_pred_rf, average='weighted', zero_division=0):.4f}")
+    rf_result_acc = accuracy_score(y_result_test, y_pred_rf)
+    rf_result_prec = precision_score(y_result_test, y_pred_rf, average='weighted', zero_division=0)
+    rf_result_recall = recall_score(y_result_test, y_pred_rf, average='weighted', zero_division=0)
+    rf_result_f1 = f1_score(y_result_test, y_pred_rf, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {rf_result_acc:.4f}")
+    print(f"   Precision: {rf_result_prec:.4f}")
+    print(f"   Recall:    {rf_result_recall:.4f}")
+    print(f"   F1-Score:  {rf_result_f1:.4f}")
     
     # ===== GRADIENT BOOSTING (Resultado 1X2) =====
-    print("\n2️⃣  GRADIENT BOOSTING (Resultado 1X2)")
+    print("\n[2] GRADIENT BOOSTING (Resultado 1X2)")
     
     gb_result = GradientBoostingClassifier(
         n_estimators=100,
@@ -174,13 +179,18 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     gb_result.fit(X_train_scaled, y_result_train)
     y_pred_gb = gb_result.predict(X_test_scaled)
     
-    print(f"   Accuracy:  {accuracy_score(y_result_test, y_pred_gb):.4f}")
-    print(f"   Precision: {precision_score(y_result_test, y_pred_gb, average='weighted', zero_division=0):.4f}")
-    print(f"   Recall:    {recall_score(y_result_test, y_pred_gb, average='weighted', zero_division=0):.4f}")
-    print(f"   F1-Score:  {f1_score(y_result_test, y_pred_gb, average='weighted', zero_division=0):.4f}")
+    gb_result_acc = accuracy_score(y_result_test, y_pred_gb)
+    gb_result_prec = precision_score(y_result_test, y_pred_gb, average='weighted', zero_division=0)
+    gb_result_recall = recall_score(y_result_test, y_pred_gb, average='weighted', zero_division=0)
+    gb_result_f1 = f1_score(y_result_test, y_pred_gb, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {gb_result_acc:.4f}")
+    print(f"   Precision: {gb_result_prec:.4f}")
+    print(f"   Recall:    {gb_result_recall:.4f}")
+    print(f"   F1-Score:  {gb_result_f1:.4f}")
     
     # ===== RANDOM FOREST (Goles Totales) =====
-    print("\n3️⃣  RANDOM FOREST (Goles Totales)")
+    print("\n[3] RANDOM FOREST (Goles Totales)")
     
     rf_goals = RandomForestRegressor(
         n_estimators=100,
@@ -194,11 +204,14 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     y_pred_goals_rf = rf_goals.predict(X_test_scaled)
     
     from sklearn.metrics import mean_absolute_error, r2_score
-    print(f"   MAE:  {mean_absolute_error(y_goals_test, y_pred_goals_rf):.4f}")
-    print(f"   R²:   {r2_score(y_goals_test, y_pred_goals_rf):.4f}")
+    rf_goals_mae = mean_absolute_error(y_goals_test, y_pred_goals_rf)
+    rf_goals_r2 = r2_score(y_goals_test, y_pred_goals_rf)
+    
+    print(f"   MAE:  {rf_goals_mae:.4f}")
+    print(f"   R²:   {rf_goals_r2:.4f}")
     
     # ===== GRADIENT BOOSTING (Goles Totales) =====
-    print("\n4️⃣  GRADIENT BOOSTING (Goles Totales)")
+    print("\n[4] GRADIENT BOOSTING (Goles Totales)")
     
     gb_goals = GradientBoostingRegressor(
         n_estimators=100,
@@ -212,8 +225,11 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     gb_goals.fit(X_train_scaled, y_goals_train)
     y_pred_goals_gb = gb_goals.predict(X_test_scaled)
     
-    print(f"   MAE:  {mean_absolute_error(y_goals_test, y_pred_goals_gb):.4f}")
-    print(f"   R²:   {r2_score(y_goals_test, y_pred_goals_gb):.4f}")
+    gb_goals_mae = mean_absolute_error(y_goals_test, y_pred_goals_gb)
+    gb_goals_r2 = r2_score(y_goals_test, y_pred_goals_gb)
+    
+    print(f"   MAE:  {gb_goals_mae:.4f}")
+    print(f"   R²:   {gb_goals_r2:.4f}")
     
     # ===== RANDOM FOREST (BTTS) =====
     print("\n5. RANDOM FOREST (BTTS)")
@@ -230,10 +246,15 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     rf_btts.fit(X_train_scaled, y_btts_train)
     y_pred_btts_rf = rf_btts.predict(X_test_scaled)
     
-    print(f"   Accuracy:  {accuracy_score(y_btts_test, y_pred_btts_rf):.4f}")
-    print(f"   Precision: {precision_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0):.4f}")
-    print(f"   Recall:    {recall_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0):.4f}")
-    print(f"   F1-Score:  {f1_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0):.4f}")
+    rf_btts_acc = accuracy_score(y_btts_test, y_pred_btts_rf)
+    rf_btts_prec = precision_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0)
+    rf_btts_recall = recall_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0)
+    rf_btts_f1 = f1_score(y_btts_test, y_pred_btts_rf, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {rf_btts_acc:.4f}")
+    print(f"   Precision: {rf_btts_prec:.4f}")
+    print(f"   Recall:    {rf_btts_recall:.4f}")
+    print(f"   F1-Score:  {rf_btts_f1:.4f}")
     
     # ===== GRADIENT BOOSTING (BTTS) =====
     print("\n6. GRADIENT BOOSTING (BTTS)")
@@ -250,14 +271,55 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     gb_btts.fit(X_train_scaled, y_btts_train)
     y_pred_btts_gb = gb_btts.predict(X_test_scaled)
     
-    print(f"   Accuracy:  {accuracy_score(y_btts_test, y_pred_btts_gb):.4f}")
-    print(f"   Precision: {precision_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0):.4f}")
-    print(f"   Recall:    {recall_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0):.4f}")
-    print(f"   F1-Score:  {f1_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0):.4f}")
+    gb_btts_acc = accuracy_score(y_btts_test, y_pred_btts_gb)
+    gb_btts_prec = precision_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0)
+    gb_btts_recall = recall_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0)
+    gb_btts_f1 = f1_score(y_btts_test, y_pred_btts_gb, average='weighted', zero_division=0)
     
-    return rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler
+    print(f"   Accuracy:  {gb_btts_acc:.4f}")
+    print(f"   Precision: {gb_btts_prec:.4f}")
+    print(f"   Recall:    {gb_btts_recall:.4f}")
+    print(f"   F1-Score:  {gb_btts_f1:.4f}")
+    
+    # Diccionario con todas las métricas
+    metrics = {
+        'rf_result': {
+            'accuracy': rf_result_acc,
+            'precision': rf_result_prec,
+            'recall': rf_result_recall,
+            'f1_score': rf_result_f1
+        },
+        'gb_result': {
+            'accuracy': gb_result_acc,
+            'precision': gb_result_prec,
+            'recall': gb_result_recall,
+            'f1_score': gb_result_f1
+        },
+        'rf_goals': {
+            'mae': rf_goals_mae,
+            'r2_score': rf_goals_r2
+        },
+        'gb_goals': {
+            'mae': gb_goals_mae,
+            'r2_score': gb_goals_r2
+        },
+        'rf_btts': {
+            'accuracy': rf_btts_acc,
+            'precision': rf_btts_prec,
+            'recall': rf_btts_recall,
+            'f1_score': rf_btts_f1
+        },
+        'gb_btts': {
+            'accuracy': gb_btts_acc,
+            'precision': gb_btts_prec,
+            'recall': gb_btts_recall,
+            'f1_score': gb_btts_f1
+        }
+    }
+    
+    return rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler, metrics
 
-def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler):
+def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler, metrics):
     """Guardar modelos mejorados sobrescribiendo los antiguos."""
     
     print("\n" + "="*70)
@@ -285,13 +347,52 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_b
             print(f"   [ERROR] Error guardando {filename}: {e}")
             return False
     
-    # Guardar timestamp de entrenamiento
-    with open(MODELS_PATH / "training_timestamp.txt", 'w') as f:
-        f.write(f"Timestamp: {timestamp}\n")
-        f.write(f"Mejoras aplicadas:\n")
-        f.write(f"  • class_weight='balanced' en Random Forest\n")
-        f.write(f"  • Features adicionales mejoradas\n")
-        f.write(f"  • Hiperparámetros optimizados\n")
+    # Guardar timestamp y métricas de entrenamiento
+    with open(MODELS_PATH / "training_timestamp.txt", 'w', encoding='utf-8') as f:
+        f.write(f"Timestamp: {timestamp}\n\n")
+        f.write(f"METRICAS DE ENTRENAMIENTO\n")
+        f.write(f"=" * 70 + "\n\n")
+        
+        # Resultado 1X2
+        f.write(f"1. RESULTADO 1X2 (Home/Draw/Away)\n")
+        f.write(f"   Random Forest:\n")
+        f.write(f"      Accuracy:  {metrics['rf_result']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['rf_result']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['rf_result']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['rf_result']['f1_score']:.2%}\n")
+        f.write(f"   Gradient Boosting:\n")
+        f.write(f"      Accuracy:  {metrics['gb_result']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['gb_result']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['gb_result']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['gb_result']['f1_score']:.2%}\n\n")
+        
+        # Goles Totales
+        f.write(f"2. GOLES TOTALES (Regresión)\n")
+        f.write(f"   Random Forest:\n")
+        f.write(f"      MAE: {metrics['rf_goals']['mae']:.4f}\n")
+        f.write(f"      R²:  {metrics['rf_goals']['r2_score']:.2%}\n")
+        f.write(f"   Gradient Boosting:\n")
+        f.write(f"      MAE: {metrics['gb_goals']['mae']:.4f}\n")
+        f.write(f"      R²:  {metrics['gb_goals']['r2_score']:.2%}\n\n")
+        
+        # BTTS
+        f.write(f"3. AMBOS ANOTAN (BTTS)\n")
+        f.write(f"   Random Forest:\n")
+        f.write(f"      Accuracy:  {metrics['rf_btts']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['rf_btts']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['rf_btts']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['rf_btts']['f1_score']:.2%}\n")
+        f.write(f"   Gradient Boosting:\n")
+        f.write(f"      Accuracy:  {metrics['gb_btts']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['gb_btts']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['gb_btts']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['gb_btts']['f1_score']:.2%}\n\n")
+        
+        f.write(f"=" * 70 + "\n")
+        f.write(f"MEJORAS APLICADAS\n")
+        f.write(f"- class_weight='balanced' en Random Forest\n")
+        f.write(f"- Features adicionales mejoradas\n")
+        f.write(f"- Hiperparametros optimizados\n")
     
     print(f"\n[OK] Modelos mejorados guardados exitosamente")
     print(f"   Timestamp: {timestamp}")
@@ -300,16 +401,16 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_b
 
 def main():
     print("\n" + "="*70)
-    print("🚀 REENTRENAMIENTO CON MEJORAS APLICADAS")
+    print("[TRAIN] REENTRENAMIENTO CON MEJORAS APLICADAS")
     print("="*70)
     print("\nMejoras a aplicar:")
-    print("  ✓ class_weight='balanced' en Random Forest")
-    print("  ✓ Features adicionales que distinguen favoritos vs draws")
-    print("  ✓ Hiperparámetros optimizados para mejor discriminación")
+    print("  - class_weight='balanced' en Random Forest")
+    print("  - Features adicionales que distinguen favoritos vs draws")
+    print("  - Hiperparametros optimizados para mejor discriminacion")
     print("="*70)
     
     # Cargar datos
-    print(f"\n📥 Cargando datos desde: {DATA_PATH}")
+    print(f"\n[LOAD] Cargando datos desde: {DATA_PATH}")
     df = pd.read_csv(str(DATA_PATH))
     print(f"   {len(df)} partidos cargados")
     
@@ -329,20 +430,20 @@ def main():
     y_goals_train, y_goals_test = y_goals[:split_idx], y_goals[split_idx:]
     y_btts_train, y_btts_test = y_btts[:split_idx], y_btts[split_idx:]
     
-    print(f"\n📊 Split train/test:")
+    print(f"\n[SPLIT] Split train/test:")
     print(f"   Train: {len(X_train)} partidos")
     print(f"   Test: {len(X_test)} partidos")
     print(f"   Features: {X.shape[1]}")
     
     # Entrenar modelos mejorados
-    rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler = train_models_improved(
+    rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler, metrics = train_models_improved(
         X_train, X_test, y_result_train, y_result_test, y_goals_train, y_goals_test, y_btts_train, y_btts_test
     )
     
     # Guardar
-    if save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler):
+    if save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler, metrics):
         print("\n" + "="*70)
-        print("✅ REENTRENAMIENTO COMPLETADO")
+        print("[OK] REENTRENAMIENTO COMPLETADO")
         print("="*70)
         print("\n📝 PRÓXIMOS PASOS:")
         print("   1. Prueba nuevas predicciones: python predict_match.py --home 'Chelsea' --away 'Liverpool'")
@@ -350,7 +451,7 @@ def main():
         print("   3. Las diferencias entre Random Forest y Gradient Boosting deberían ser menores")
         print("\n")
     else:
-        print("\n❌ Error al guardar modelos")
+        print("\n[ERROR] Error al guardar modelos")
         sys.exit(1)
 
 if __name__ == '__main__':
