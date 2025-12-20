@@ -16,8 +16,12 @@ from datetime import datetime
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import VotingClassifier, VotingRegressor
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 from sklearn.metrics import mean_absolute_error, r2_score
+from xgboost import XGBClassifier, XGBRegressor
+from lightgbm import LGBMClassifier, LGBMRegressor
+from catboost import CatBoostClassifier, CatBoostRegressor
 import pickle
 import json
 import warnings
@@ -126,11 +130,12 @@ def create_enhanced_features(df):
 def train_models_improved(X_train, X_test, y_result_train, y_result_test, 
                          y_goals_train, y_goals_test, y_btts_train, y_btts_test):
     """
-    Entrena modelos mejorados con class_weight balanced.
+    Entrena modelos mejorados: RF, GB, XGBoost, LightGBM y CatBoost.
     """
     
     print("\n" + "="*70)
     print("🤖 ENTRENAMIENTO DE MODELOS MEJORADOS")
+    print("   Algoritmos: RF, GB, XGBoost, LightGBM, CatBoost")
     print("="*70)
     
     # Normalizar
@@ -281,6 +286,300 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
     print(f"   Recall:    {gb_btts_recall:.4f}")
     print(f"   F1-Score:  {gb_btts_f1:.4f}")
     
+    # ===== XGBOOST (Resultado 1X2) =====
+    print("\n[7] XGBOOST (Resultado 1X2)")
+    
+    xgb_result = XGBClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=6,
+        min_child_weight=3,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        eval_metric='mlogloss',
+        verbosity=0
+    )
+    xgb_result.fit(X_train_scaled, y_result_train)
+    y_pred_xgb = xgb_result.predict(X_test_scaled)
+    
+    xgb_result_acc = accuracy_score(y_result_test, y_pred_xgb)
+    xgb_result_prec = precision_score(y_result_test, y_pred_xgb, average='weighted', zero_division=0)
+    xgb_result_recall = recall_score(y_result_test, y_pred_xgb, average='weighted', zero_division=0)
+    xgb_result_f1 = f1_score(y_result_test, y_pred_xgb, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {xgb_result_acc:.4f}")
+    print(f"   Precision: {xgb_result_prec:.4f}")
+    print(f"   Recall:    {xgb_result_recall:.4f}")
+    print(f"   F1-Score:  {xgb_result_f1:.4f}")
+    
+    # ===== XGBOOST (Goles Totales) =====
+    print("\n[8] XGBOOST (Goles Totales)")
+    
+    xgb_goals = XGBRegressor(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=6,
+        min_child_weight=3,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        verbosity=0
+    )
+    xgb_goals.fit(X_train_scaled, y_goals_train)
+    y_pred_goals_xgb = xgb_goals.predict(X_test_scaled)
+    
+    xgb_goals_mae = mean_absolute_error(y_goals_test, y_pred_goals_xgb)
+    xgb_goals_r2 = r2_score(y_goals_test, y_pred_goals_xgb)
+    
+    print(f"   MAE:  {xgb_goals_mae:.4f}")
+    print(f"   R²:   {xgb_goals_r2:.4f}")
+    
+    # ===== XGBOOST (BTTS) =====
+    print("\n[9] XGBOOST (BTTS)")
+    
+    xgb_btts = XGBClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=6,
+        min_child_weight=3,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        eval_metric='logloss',
+        verbosity=0
+    )
+    xgb_btts.fit(X_train_scaled, y_btts_train)
+    y_pred_btts_xgb = xgb_btts.predict(X_test_scaled)
+    
+    xgb_btts_acc = accuracy_score(y_btts_test, y_pred_btts_xgb)
+    xgb_btts_prec = precision_score(y_btts_test, y_pred_btts_xgb, average='weighted', zero_division=0)
+    xgb_btts_recall = recall_score(y_btts_test, y_pred_btts_xgb, average='weighted', zero_division=0)
+    xgb_btts_f1 = f1_score(y_btts_test, y_pred_btts_xgb, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {xgb_btts_acc:.4f}")
+    print(f"   Precision: {xgb_btts_prec:.4f}")
+    print(f"   Recall:    {xgb_btts_recall:.4f}")
+    print(f"   F1-Score:  {xgb_btts_f1:.4f}")
+    
+    # ===== LIGHTGBM (Resultado 1X2) =====
+    print("\n[10] LIGHTGBM (Resultado 1X2)")
+    
+    lgb_result = LGBMClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=7,
+        num_leaves=31,
+        min_child_samples=20,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        verbosity=-1
+    )
+    lgb_result.fit(X_train_scaled, y_result_train)
+    y_pred_lgb = lgb_result.predict(X_test_scaled)
+    
+    lgb_result_acc = accuracy_score(y_result_test, y_pred_lgb)
+    lgb_result_prec = precision_score(y_result_test, y_pred_lgb, average='weighted', zero_division=0)
+    lgb_result_recall = recall_score(y_result_test, y_pred_lgb, average='weighted', zero_division=0)
+    lgb_result_f1 = f1_score(y_result_test, y_pred_lgb, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {lgb_result_acc:.4f}")
+    print(f"   Precision: {lgb_result_prec:.4f}")
+    print(f"   Recall:    {lgb_result_recall:.4f}")
+    print(f"   F1-Score:  {lgb_result_f1:.4f}")
+    
+    # ===== LIGHTGBM (Goles Totales) =====
+    print("\n[11] LIGHTGBM (Goles Totales)")
+    
+    lgb_goals = LGBMRegressor(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=7,
+        num_leaves=31,
+        min_child_samples=20,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        verbosity=-1
+    )
+    lgb_goals.fit(X_train_scaled, y_goals_train)
+    y_pred_goals_lgb = lgb_goals.predict(X_test_scaled)
+    
+    lgb_goals_mae = mean_absolute_error(y_goals_test, y_pred_goals_lgb)
+    lgb_goals_r2 = r2_score(y_goals_test, y_pred_goals_lgb)
+    
+    print(f"   MAE:  {lgb_goals_mae:.4f}")
+    print(f"   R²:   {lgb_goals_r2:.4f}")
+    
+    # ===== LIGHTGBM (BTTS) =====
+    print("\n[12] LIGHTGBM (BTTS)")
+    
+    lgb_btts = LGBMClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=7,
+        num_leaves=31,
+        min_child_samples=20,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        verbosity=-1
+    )
+    lgb_btts.fit(X_train_scaled, y_btts_train)
+    y_pred_btts_lgb = lgb_btts.predict(X_test_scaled)
+    
+    lgb_btts_acc = accuracy_score(y_btts_test, y_pred_btts_lgb)
+    lgb_btts_prec = precision_score(y_btts_test, y_pred_btts_lgb, average='weighted', zero_division=0)
+    lgb_btts_recall = recall_score(y_btts_test, y_pred_btts_lgb, average='weighted', zero_division=0)
+    lgb_btts_f1 = f1_score(y_btts_test, y_pred_btts_lgb, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {lgb_btts_acc:.4f}")
+    print(f"   Precision: {lgb_btts_prec:.4f}")
+    print(f"   Recall:    {lgb_btts_recall:.4f}")
+    print(f"   F1-Score:  {lgb_btts_f1:.4f}")
+    
+    # ===== CATBOOST (Resultado 1X2) =====
+    print("\n[13] CATBOOST (Resultado 1X2)")
+    
+    cat_result = CatBoostClassifier(
+        iterations=100,
+        learning_rate=0.1,
+        depth=6,
+        l2_leaf_reg=3,
+        random_state=42,
+        verbose=False
+    )
+    cat_result.fit(X_train_scaled, y_result_train)
+    y_pred_cat = cat_result.predict(X_test_scaled)
+    
+    cat_result_acc = accuracy_score(y_result_test, y_pred_cat)
+    cat_result_prec = precision_score(y_result_test, y_pred_cat, average='weighted', zero_division=0)
+    cat_result_recall = recall_score(y_result_test, y_pred_cat, average='weighted', zero_division=0)
+    cat_result_f1 = f1_score(y_result_test, y_pred_cat, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {cat_result_acc:.4f}")
+    print(f"   Precision: {cat_result_prec:.4f}")
+    print(f"   Recall:    {cat_result_recall:.4f}")
+    print(f"   F1-Score:  {cat_result_f1:.4f}")
+    
+    # ===== CATBOOST (Goles Totales) =====
+    print("\n[14] CATBOOST (Goles Totales)")
+    
+    cat_goals = CatBoostRegressor(
+        iterations=100,
+        learning_rate=0.1,
+        depth=6,
+        l2_leaf_reg=3,
+        random_state=42,
+        verbose=False
+    )
+    cat_goals.fit(X_train_scaled, y_goals_train)
+    y_pred_goals_cat = cat_goals.predict(X_test_scaled)
+    
+    cat_goals_mae = mean_absolute_error(y_goals_test, y_pred_goals_cat)
+    cat_goals_r2 = r2_score(y_goals_test, y_pred_goals_cat)
+    
+    print(f"   MAE:  {cat_goals_mae:.4f}")
+    print(f"   R²:   {cat_goals_r2:.4f}")
+    
+    # ===== CATBOOST (BTTS) =====
+    print("\n[15] CATBOOST (BTTS)")
+    
+    cat_btts = CatBoostClassifier(
+        iterations=100,
+        learning_rate=0.1,
+        depth=6,
+        l2_leaf_reg=3,
+        random_state=42,
+        verbose=False
+    )
+    cat_btts.fit(X_train_scaled, y_btts_train)
+    y_pred_btts_cat = cat_btts.predict(X_test_scaled)
+    
+    cat_btts_acc = accuracy_score(y_btts_test, y_pred_btts_cat)
+    cat_btts_prec = precision_score(y_btts_test, y_pred_btts_cat, average='weighted', zero_division=0)
+    cat_btts_recall = recall_score(y_btts_test, y_pred_btts_cat, average='weighted', zero_division=0)
+    cat_btts_f1 = f1_score(y_btts_test, y_pred_btts_cat, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {cat_btts_acc:.4f}")
+    print(f"   Precision: {cat_btts_prec:.4f}")
+    print(f"   Recall:    {cat_btts_recall:.4f}")
+    print(f"   F1-Score:  {cat_btts_f1:.4f}")
+    
+    # ===== VOTING ENSEMBLE (Resultado 1X2) =====
+    print("\n" + "="*70)
+    print("🎯 VOTING ENSEMBLES - COMBINANDO MEJORES MODELOS")
+    print("="*70)
+    print("\n[16] VOTING ENSEMBLE (Resultado 1X2)")
+    print("   Combinando: GB + LightGBM + XGBoost")
+    
+    voting_result = VotingClassifier(
+        estimators=[
+            ('gb', gb_result),
+            ('lgb', lgb_result),
+            ('xgb', xgb_result)
+        ],
+        voting='soft'  # Usa probabilidades para mejor resultado
+    )
+    voting_result.fit(X_train_scaled, y_result_train)
+    y_pred_voting = voting_result.predict(X_test_scaled)
+    
+    voting_result_acc = accuracy_score(y_result_test, y_pred_voting)
+    voting_result_prec = precision_score(y_result_test, y_pred_voting, average='weighted', zero_division=0)
+    voting_result_recall = recall_score(y_result_test, y_pred_voting, average='weighted', zero_division=0)
+    voting_result_f1 = f1_score(y_result_test, y_pred_voting, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {voting_result_acc:.4f}")
+    print(f"   Precision: {voting_result_prec:.4f}")
+    print(f"   Recall:    {voting_result_recall:.4f}")
+    print(f"   F1-Score:  {voting_result_f1:.4f}")
+    
+    # ===== VOTING ENSEMBLE (Goles Totales) =====
+    print("\n[17] VOTING ENSEMBLE (Goles Totales)")
+    print("   Combinando: GB + LightGBM + XGBoost")
+    
+    voting_goals = VotingRegressor(
+        estimators=[
+            ('gb', gb_goals),
+            ('lgb', lgb_goals),
+            ('xgb', xgb_goals)
+        ]
+    )
+    voting_goals.fit(X_train_scaled, y_goals_train)
+    y_pred_goals_voting = voting_goals.predict(X_test_scaled)
+    
+    voting_goals_mae = mean_absolute_error(y_goals_test, y_pred_goals_voting)
+    voting_goals_r2 = r2_score(y_goals_test, y_pred_goals_voting)
+    
+    print(f"   MAE:  {voting_goals_mae:.4f}")
+    print(f"   R²:   {voting_goals_r2:.4f}")
+    
+    # ===== VOTING ENSEMBLE (BTTS) =====
+    print("\n[18] VOTING ENSEMBLE (BTTS)")
+    print("   Combinando: XGBoost + GB + LightGBM")
+    
+    voting_btts = VotingClassifier(
+        estimators=[
+            ('xgb', xgb_btts),
+            ('gb', gb_btts),
+            ('lgb', lgb_btts)
+        ],
+        voting='soft'
+    )
+    voting_btts.fit(X_train_scaled, y_btts_train)
+    y_pred_btts_voting = voting_btts.predict(X_test_scaled)
+    
+    voting_btts_acc = accuracy_score(y_btts_test, y_pred_btts_voting)
+    voting_btts_prec = precision_score(y_btts_test, y_pred_btts_voting, average='weighted', zero_division=0)
+    voting_btts_recall = recall_score(y_btts_test, y_pred_btts_voting, average='weighted', zero_division=0)
+    voting_btts_f1 = f1_score(y_btts_test, y_pred_btts_voting, average='weighted', zero_division=0)
+    
+    print(f"   Accuracy:  {voting_btts_acc:.4f}")
+    print(f"   Precision: {voting_btts_prec:.4f}")
+    print(f"   Recall:    {voting_btts_recall:.4f}")
+    print(f"   F1-Score:  {voting_btts_f1:.4f}")
+    
     # Diccionario con todas las métricas
     metrics = {
         'rf_result': {
@@ -295,6 +594,24 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
             'recall': gb_result_recall,
             'f1_score': gb_result_f1
         },
+        'xgb_result': {
+            'accuracy': xgb_result_acc,
+            'precision': xgb_result_prec,
+            'recall': xgb_result_recall,
+            'f1_score': xgb_result_f1
+        },
+        'lgb_result': {
+            'accuracy': lgb_result_acc,
+            'precision': lgb_result_prec,
+            'recall': lgb_result_recall,
+            'f1_score': lgb_result_f1
+        },
+        'cat_result': {
+            'accuracy': cat_result_acc,
+            'precision': cat_result_prec,
+            'recall': cat_result_recall,
+            'f1_score': cat_result_f1
+        },
         'rf_goals': {
             'mae': rf_goals_mae,
             'r2_score': rf_goals_r2
@@ -302,6 +619,18 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
         'gb_goals': {
             'mae': gb_goals_mae,
             'r2_score': gb_goals_r2
+        },
+        'xgb_goals': {
+            'mae': xgb_goals_mae,
+            'r2_score': xgb_goals_r2
+        },
+        'lgb_goals': {
+            'mae': lgb_goals_mae,
+            'r2_score': lgb_goals_r2
+        },
+        'cat_goals': {
+            'mae': cat_goals_mae,
+            'r2_score': cat_goals_r2
         },
         'rf_btts': {
             'accuracy': rf_btts_acc,
@@ -314,16 +643,58 @@ def train_models_improved(X_train, X_test, y_result_train, y_result_test,
             'precision': gb_btts_prec,
             'recall': gb_btts_recall,
             'f1_score': gb_btts_f1
+        },
+        'xgb_btts': {
+            'accuracy': xgb_btts_acc,
+            'precision': xgb_btts_prec,
+            'recall': xgb_btts_recall,
+            'f1_score': xgb_btts_f1
+        },
+        'lgb_btts': {
+            'accuracy': lgb_btts_acc,
+            'precision': lgb_btts_prec,
+            'recall': lgb_btts_recall,
+            'f1_score': lgb_btts_f1
+        },
+        'cat_btts': {
+            'accuracy': cat_btts_acc,
+            'precision': cat_btts_prec,
+            'recall': cat_btts_recall,
+            'f1_score': cat_btts_f1
+        },
+        'voting_result': {
+            'accuracy': voting_result_acc,
+            'precision': voting_result_prec,
+            'recall': voting_result_recall,
+            'f1_score': voting_result_f1
+        },
+        'voting_goals': {
+            'mae': voting_goals_mae,
+            'r2_score': voting_goals_r2
+        },
+        'voting_btts': {
+            'accuracy': voting_btts_acc,
+            'precision': voting_btts_prec,
+            'recall': voting_btts_recall,
+            'f1_score': voting_btts_f1
         }
     }
     
-    return rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler, metrics
+    return (rf_result, gb_result, xgb_result, lgb_result, cat_result,
+            rf_goals, gb_goals, xgb_goals, lgb_goals, cat_goals,
+            rf_btts, gb_btts, xgb_btts, lgb_btts, cat_btts,
+            voting_result, voting_goals, voting_btts,
+            scaler, metrics)
 
-def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler, metrics):
-    """Guardar modelos mejorados sobrescribiendo los antiguos."""
+def save_models_improved(rf_result, gb_result, xgb_result, lgb_result, cat_result,
+                        rf_goals, gb_goals, xgb_goals, lgb_goals, cat_goals,
+                        rf_btts, gb_btts, xgb_btts, lgb_btts, cat_btts,
+                        voting_result, voting_goals, voting_btts,
+                        scaler, metrics):
+    """Guardar todos los modelos mejorados incluyendo voting ensembles."""
     
     print("\n" + "="*70)
-    print("GUARDANDO MODELOS MEJORADOS")
+    print("GUARDANDO MODELOS MEJORADOS + VOTING ENSEMBLES")
     print("="*70 + "\n")
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -331,10 +702,22 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_b
     models_to_save = {
         'rf_result_model.pkl': rf_result,
         'gb_result_model.pkl': gb_result,
+        'xgb_result_model.pkl': xgb_result,
+        'lgb_result_model.pkl': lgb_result,
+        'cat_result_model.pkl': cat_result,
         'rf_goals_model.pkl': rf_goals,
         'gb_goals_model.pkl': gb_goals,
+        'xgb_goals_model.pkl': xgb_goals,
+        'lgb_goals_model.pkl': lgb_goals,
+        'cat_goals_model.pkl': cat_goals,
         'rf_btts_model.pkl': rf_btts,
         'gb_btts_model.pkl': gb_btts,
+        'xgb_btts_model.pkl': xgb_btts,
+        'lgb_btts_model.pkl': lgb_btts,
+        'cat_btts_model.pkl': cat_btts,
+        'voting_result_model.pkl': voting_result,
+        'voting_goals_model.pkl': voting_goals,
+        'voting_btts_model.pkl': voting_btts,
         'scaler_model.pkl': scaler,
     }
     
@@ -364,7 +747,27 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_b
         f.write(f"      Accuracy:  {metrics['gb_result']['accuracy']:.2%}\n")
         f.write(f"      Precision: {metrics['gb_result']['precision']:.2%}\n")
         f.write(f"      Recall:    {metrics['gb_result']['recall']:.2%}\n")
-        f.write(f"      F1-Score:  {metrics['gb_result']['f1_score']:.2%}\n\n")
+        f.write(f"      F1-Score:  {metrics['gb_result']['f1_score']:.2%}\n")
+        f.write(f"   XGBoost:\n")
+        f.write(f"      Accuracy:  {metrics['xgb_result']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['xgb_result']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['xgb_result']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['xgb_result']['f1_score']:.2%}\n")
+        f.write(f"   LightGBM:\n")
+        f.write(f"      Accuracy:  {metrics['lgb_result']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['lgb_result']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['lgb_result']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['lgb_result']['f1_score']:.2%}\n")
+        f.write(f"   CatBoost:\n")
+        f.write(f"      Accuracy:  {metrics['cat_result']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['cat_result']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['cat_result']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['cat_result']['f1_score']:.2%}\n")
+        f.write(f"   🎯 VOTING ENSEMBLE (GB+LGB+XGB):\n")
+        f.write(f"      Accuracy:  {metrics['voting_result']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['voting_result']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['voting_result']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['voting_result']['f1_score']:.2%}\n\n")
         
         # Goles Totales
         f.write(f"2. GOLES TOTALES (Regresión)\n")
@@ -373,7 +776,19 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_b
         f.write(f"      R²:  {metrics['rf_goals']['r2_score']:.2%}\n")
         f.write(f"   Gradient Boosting:\n")
         f.write(f"      MAE: {metrics['gb_goals']['mae']:.4f}\n")
-        f.write(f"      R²:  {metrics['gb_goals']['r2_score']:.2%}\n\n")
+        f.write(f"      R²:  {metrics['gb_goals']['r2_score']:.2%}\n")
+        f.write(f"   XGBoost:\n")
+        f.write(f"      MAE: {metrics['xgb_goals']['mae']:.4f}\n")
+        f.write(f"      R²:  {metrics['xgb_goals']['r2_score']:.2%}\n")
+        f.write(f"   LightGBM:\n")
+        f.write(f"      MAE: {metrics['lgb_goals']['mae']:.4f}\n")
+        f.write(f"      R²:  {metrics['lgb_goals']['r2_score']:.2%}\n")
+        f.write(f"   CatBoost:\n")
+        f.write(f"      MAE: {metrics['cat_goals']['mae']:.4f}\n")
+        f.write(f"      R²:  {metrics['cat_goals']['r2_score']:.2%}\n")
+        f.write(f"   🎯 VOTING ENSEMBLE (GB+LGB+XGB):\n")
+        f.write(f"      MAE: {metrics['voting_goals']['mae']:.4f}\n")
+        f.write(f"      R²:  {metrics['voting_goals']['r2_score']:.2%}\n\n")
         
         # BTTS
         f.write(f"3. AMBOS ANOTAN (BTTS)\n")
@@ -386,13 +801,42 @@ def save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_b
         f.write(f"      Accuracy:  {metrics['gb_btts']['accuracy']:.2%}\n")
         f.write(f"      Precision: {metrics['gb_btts']['precision']:.2%}\n")
         f.write(f"      Recall:    {metrics['gb_btts']['recall']:.2%}\n")
-        f.write(f"      F1-Score:  {metrics['gb_btts']['f1_score']:.2%}\n\n")
+        f.write(f"      F1-Score:  {metrics['gb_btts']['f1_score']:.2%}\n")
+        f.write(f"   XGBoost:\n")
+        f.write(f"      Accuracy:  {metrics['xgb_btts']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['xgb_btts']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['xgb_btts']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['xgb_btts']['f1_score']:.2%}\n")
+        f.write(f"   LightGBM:\n")
+        f.write(f"      Accuracy:  {metrics['lgb_btts']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['lgb_btts']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['lgb_btts']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['lgb_btts']['f1_score']:.2%}\n")
+        f.write(f"   CatBoost:\n")
+        f.write(f"      Accuracy:  {metrics['cat_btts']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['cat_btts']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['cat_btts']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['cat_btts']['f1_score']:.2%}\n")
+        f.write(f"   🎯 VOTING ENSEMBLE (XGB+GB+LGB):\n")
+        f.write(f"      Accuracy:  {metrics['voting_btts']['accuracy']:.2%}\n")
+        f.write(f"      Precision: {metrics['voting_btts']['precision']:.2%}\n")
+        f.write(f"      Recall:    {metrics['voting_btts']['recall']:.2%}\n")
+        f.write(f"      F1-Score:  {metrics['voting_btts']['f1_score']:.2%}\n\n")
         
         f.write(f"=" * 70 + "\n")
+        f.write(f"ALGORITMOS IMPLEMENTADOS\n")
+        f.write(f"- Random Forest (RF)\n")
+        f.write(f"- Gradient Boosting (GB)\n")
+        f.write(f"- XGBoost (XGB)\n")
+        f.write(f"- LightGBM (LGB)\n")
+        f.write(f"- CatBoost (CAT)\n")
+        f.write(f"- 🎯 Voting Ensemble (Combinación de mejores modelos)\n\n")
         f.write(f"MEJORAS APLICADAS\n")
         f.write(f"- class_weight='balanced' en Random Forest\n")
         f.write(f"- Features adicionales mejoradas\n")
         f.write(f"- Hiperparametros optimizados\n")
+        f.write(f"- Algoritmos avanzados de boosting\n")
+        f.write(f"- Voting Ensemble con soft voting para mejor precisión\n")
     
     print(f"\n[OK] Modelos mejorados guardados exitosamente")
     print(f"   Timestamp: {timestamp}")
@@ -436,12 +880,20 @@ def main():
     print(f"   Features: {X.shape[1]}")
     
     # Entrenar modelos mejorados
-    rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler, metrics = train_models_improved(
+    (rf_result, gb_result, xgb_result, lgb_result, cat_result,
+     rf_goals, gb_goals, xgb_goals, lgb_goals, cat_goals,
+     rf_btts, gb_btts, xgb_btts, lgb_btts, cat_btts,
+     voting_result, voting_goals, voting_btts,
+     scaler, metrics) = train_models_improved(
         X_train, X_test, y_result_train, y_result_test, y_goals_train, y_goals_test, y_btts_train, y_btts_test
     )
     
     # Guardar
-    if save_models_improved(rf_result, gb_result, rf_goals, gb_goals, rf_btts, gb_btts, scaler, metrics):
+    if save_models_improved(rf_result, gb_result, xgb_result, lgb_result, cat_result,
+                           rf_goals, gb_goals, xgb_goals, lgb_goals, cat_goals,
+                           rf_btts, gb_btts, xgb_btts, lgb_btts, cat_btts,
+                           voting_result, voting_goals, voting_btts,
+                           scaler, metrics):
         print("\n" + "="*70)
         print("[OK] REENTRENAMIENTO COMPLETADO")
         print("="*70)

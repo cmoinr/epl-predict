@@ -35,12 +35,38 @@ class EPLPredictor:
     def _load_models(self):
         """Cargar todos los modelos desde archivos .pkl"""
         try:
+            # Modelos básicos (RF, GB)
             self.rf_result = pickle.load(open(self.models_dir / 'rf_result_model.pkl', 'rb'))
             self.gb_result = pickle.load(open(self.models_dir / 'gb_result_model.pkl', 'rb'))
             self.rf_goals = pickle.load(open(self.models_dir / 'rf_goals_model.pkl', 'rb'))
             self.gb_goals = pickle.load(open(self.models_dir / 'gb_goals_model.pkl', 'rb'))
             self.rf_btts = pickle.load(open(self.models_dir / 'rf_btts_model.pkl', 'rb'))
             self.gb_btts = pickle.load(open(self.models_dir / 'gb_btts_model.pkl', 'rb'))
+            
+            # Modelos avanzados (XGBoost, LightGBM, CatBoost, Voting)
+            try:
+                self.xgb_result = pickle.load(open(self.models_dir / 'xgb_result_model.pkl', 'rb'))
+                self.xgb_goals = pickle.load(open(self.models_dir / 'xgb_goals_model.pkl', 'rb'))
+                self.xgb_btts = pickle.load(open(self.models_dir / 'xgb_btts_model.pkl', 'rb'))
+                
+                self.lgb_result = pickle.load(open(self.models_dir / 'lgb_result_model.pkl', 'rb'))
+                self.lgb_goals = pickle.load(open(self.models_dir / 'lgb_goals_model.pkl', 'rb'))
+                self.lgb_btts = pickle.load(open(self.models_dir / 'lgb_btts_model.pkl', 'rb'))
+                
+                self.cat_result = pickle.load(open(self.models_dir / 'cat_result_model.pkl', 'rb'))
+                self.cat_goals = pickle.load(open(self.models_dir / 'cat_goals_model.pkl', 'rb'))
+                self.cat_btts = pickle.load(open(self.models_dir / 'cat_btts_model.pkl', 'rb'))
+                
+                self.voting_result = pickle.load(open(self.models_dir / 'voting_result_model.pkl', 'rb'))
+                self.voting_goals = pickle.load(open(self.models_dir / 'voting_goals_model.pkl', 'rb'))
+                self.voting_btts = pickle.load(open(self.models_dir / 'voting_btts_model.pkl', 'rb'))
+                
+                self.advanced_models = True
+                print(f'[✅] Modelos avanzados cargados: XGBoost, LightGBM, CatBoost, Voting Ensemble')
+            except FileNotFoundError:
+                self.advanced_models = False
+                print(f'[⚠️] Usando solo modelos básicos (RF, GB)')
+            
             self.scaler = pickle.load(open(self.models_dir / 'scaler_model.pkl', 'rb'))
             
             print(f'[OK] Modelos cargados desde: {self.models_dir}')
@@ -310,29 +336,61 @@ class EPLPredictor:
         # 2. Crear features basados en estadísticas reales de equipos
         X_new_scaled = self._create_realistic_features(df_historical, home_team, away_team, match_date)
         
-        # 3. PREDICCIÓN DE RESULTADO (1X2)
+        # 3. PREDICCIÓN DE RESULTADO (1X2) - MEJOR: Gradient Boosting
         pred_result_rf = self.rf_result.predict(X_new_scaled)[0]
         prob_result_rf = self.rf_result.predict_proba(X_new_scaled)[0]
         
-        pred_result_gb = self.gb_result.predict(X_new_scaled)[0]
+        pred_result_gb = self.gb_result.predict(X_new_scaled)[0]  # 🏆 MEJOR (74.93%)
         prob_result_gb = self.gb_result.predict_proba(X_new_scaled)[0]
         
-        # 4. PREDICCIÓN DE GOLES TOTALES
+        # Predicciones adicionales si están disponibles
+        if self.advanced_models:
+            pred_result_xgb = self.xgb_result.predict(X_new_scaled)[0]
+            prob_result_xgb = self.xgb_result.predict_proba(X_new_scaled)[0]
+            
+            pred_result_lgb = self.lgb_result.predict(X_new_scaled)[0]
+            prob_result_lgb = self.lgb_result.predict_proba(X_new_scaled)[0]
+            
+            pred_result_voting = self.voting_result.predict(X_new_scaled)[0]
+            prob_result_voting = self.voting_result.predict_proba(X_new_scaled)[0]
+        
+        # 4. PREDICCIÓN DE GOLES TOTALES - MEJOR: Voting Ensemble
         pred_goals_rf = self.rf_goals.predict(X_new_scaled)[0]
         pred_goals_gb = self.gb_goals.predict(X_new_scaled)[0]
         
-        # 5. PREDICCIÓN DE AMBOS ANOTAN (BTTS)
+        if self.advanced_models:
+            pred_goals_xgb = self.xgb_goals.predict(X_new_scaled)[0]
+            pred_goals_lgb = self.lgb_goals.predict(X_new_scaled)[0]
+            pred_goals_voting = self.voting_goals.predict(X_new_scaled)[0]  # 🏆 MEJOR (MAE: 0.8409)
+        
+        # 5. PREDICCIÓN DE AMBOS ANOTAN (BTTS) - MEJOR: XGBoost
         prob_btts_rf = self.rf_btts.predict_proba(X_new_scaled)[0]
         prob_btts_gb = self.gb_btts.predict_proba(X_new_scaled)[0]
+        
+        if self.advanced_models:
+            prob_btts_xgb = self.xgb_btts.predict_proba(X_new_scaled)[0]  # 🏆 MEJOR (78.37%)
+            prob_btts_lgb = self.lgb_btts.predict_proba(X_new_scaled)[0]
+            prob_btts_voting = self.voting_btts.predict_proba(X_new_scaled)[0]
         
         # 6. Mapear código numérico a resultado
         result_map = {0: 'Away Win', 1: 'Draw', 2: 'Home Win'}
         
         # 7. Construir respuesta detallada
-        return {
+        response = {
             'partido': f'{home_team} vs {away_team}',
             'fecha': match_date,
             'resultado': {
+                'mejor_modelo': {
+                    'nombre': 'Gradient Boosting',
+                    'precision': '74.93%',
+                    'prediccion': result_map[int(pred_result_gb)],
+                    'confianza': float(max(prob_result_gb) * 100),
+                    'probabilidades': {
+                        'Away Win': float(prob_result_gb[0] * 100),
+                        'Draw': float(prob_result_gb[1] * 100),
+                        'Home Win': float(prob_result_gb[2] * 100),
+                    }
+                },
                 'random_forest': {
                     'prediccion': result_map[int(pred_result_rf)],
                     'confianza': float(max(prob_result_rf) * 100),
@@ -353,11 +411,22 @@ class EPLPredictor:
                 }
             },
             'goles_totales': {
+                'mejor_modelo': {
+                    'nombre': 'Voting Ensemble' if self.advanced_models else 'Gradient Boosting',
+                    'mae': '0.8409' if self.advanced_models else '0.8457',
+                    'prediccion': float(round(pred_goals_voting if self.advanced_models else pred_goals_gb, 2))
+                },
                 'random_forest': float(round(pred_goals_rf, 2)),
                 'gradient_boosting': float(round(pred_goals_gb, 2)),
                 'promedio': float(round((pred_goals_rf + pred_goals_gb) / 2, 2))
             },
             'ambos_anotan': {
+                'mejor_modelo': {
+                    'nombre': 'XGBoost' if self.advanced_models else 'Gradient Boosting',
+                    'precision': '78.37%' if self.advanced_models else '78.02%',
+                    'no': float((prob_btts_xgb[0] if self.advanced_models else prob_btts_gb[0]) * 100),
+                    'si': float((prob_btts_xgb[1] if self.advanced_models else prob_btts_gb[1]) * 100)
+                },
                 'random_forest': {
                     'no': float(prob_btts_rf[0] * 100),
                     'si': float(prob_btts_rf[1] * 100)
@@ -372,6 +441,55 @@ class EPLPredictor:
                 }
             }
         }
+        
+        # Añadir modelos avanzados si están disponibles
+        if self.advanced_models:
+            response['resultado']['xgboost'] = {
+                'prediccion': result_map[int(pred_result_xgb)],
+                'confianza': float(max(prob_result_xgb) * 100),
+                'probabilidades': {
+                    'Away Win': float(prob_result_xgb[0] * 100),
+                    'Draw': float(prob_result_xgb[1] * 100),
+                    'Home Win': float(prob_result_xgb[2] * 100),
+                }
+            }
+            response['resultado']['lightgbm'] = {
+                'prediccion': result_map[int(pred_result_lgb)],
+                'confianza': float(max(prob_result_lgb) * 100),
+                'probabilidades': {
+                    'Away Win': float(prob_result_lgb[0] * 100),
+                    'Draw': float(prob_result_lgb[1] * 100),
+                    'Home Win': float(prob_result_lgb[2] * 100),
+                }
+            }
+            response['resultado']['voting_ensemble'] = {
+                'prediccion': result_map[int(pred_result_voting)],
+                'confianza': float(max(prob_result_voting) * 100),
+                'probabilidades': {
+                    'Away Win': float(prob_result_voting[0] * 100),
+                    'Draw': float(prob_result_voting[1] * 100),
+                    'Home Win': float(prob_result_voting[2] * 100),
+                }
+            }
+            
+            response['goles_totales']['xgboost'] = float(round(pred_goals_xgb, 2))
+            response['goles_totales']['lightgbm'] = float(round(pred_goals_lgb, 2))
+            response['goles_totales']['voting_ensemble'] = float(round(pred_goals_voting, 2))
+            
+            response['ambos_anotan']['xgboost'] = {
+                'no': float(prob_btts_xgb[0] * 100),
+                'si': float(prob_btts_xgb[1] * 100)
+            }
+            response['ambos_anotan']['lightgbm'] = {
+                'no': float(prob_btts_lgb[0] * 100),
+                'si': float(prob_btts_lgb[1] * 100)
+            }
+            response['ambos_anotan']['voting_ensemble'] = {
+                'no': float(prob_btts_voting[0] * 100),
+                'si': float(prob_btts_voting[1] * 100)
+            }
+        
+        return response
     
     def predict_batch(self, 
                      df_historical: pd.DataFrame,
@@ -408,29 +526,65 @@ class EPLPredictor:
         print(f"{'='*70}")
         
         print(f"\n📊 RESULTADO (1X2):")
-        print(f"\n  🌲 Random Forest:")
-        print(f"     Predicción: {result['resultado']['random_forest']['prediccion']}")
-        print(f"     Confianza: {result['resultado']['random_forest']['confianza']:.1f}%")
+        
+        # Mostrar MEJOR MODELO primero
+        best = result['resultado']['mejor_modelo']
+        print(f"\n  🏆 {best['nombre']} (Precisión: {best['precision']}):")
+        print(f"     Predicción: {best['prediccion']}")
+        print(f"     Confianza: {best['confianza']:.1f}%")
         if verbose:
-            probs = result['resultado']['random_forest']['probabilidades']
+            probs = best['probabilidades']
             print(f"     Detalles: Away {probs['Away Win']:.1f}% | Draw {probs['Draw']:.1f}% | Home {probs['Home Win']:.1f}%")
         
-        print(f"\n  ⚡ Gradient Boosting:")
-        print(f"     Predicción: {result['resultado']['gradient_boosting']['prediccion']}")
-        print(f"     Confianza: {result['resultado']['gradient_boosting']['confianza']:.1f}%")
+        # Mostrar otros modelos si verbose
         if verbose:
-            probs = result['resultado']['gradient_boosting']['probabilidades']
-            print(f"     Detalles: Away {probs['Away Win']:.1f}% | Draw {probs['Draw']:.1f}% | Home {probs['Home Win']:.1f}%")
+            print(f"\n  🌲 Random Forest:")
+            print(f"     Predicción: {result['resultado']['random_forest']['prediccion']}")
+            print(f"     Confianza: {result['resultado']['random_forest']['confianza']:.1f}%")
+            
+            if 'xgboost' in result['resultado']:
+                print(f"\n  ⚡ XGBoost:")
+                print(f"     Predicción: {result['resultado']['xgboost']['prediccion']}")
+                print(f"     Confianza: {result['resultado']['xgboost']['confianza']:.1f}%")
+                
+            if 'lightgbm' in result['resultado']:
+                print(f"\n  💡 LightGBM:")
+                print(f"     Predicción: {result['resultado']['lightgbm']['prediccion']}")
+                print(f"     Confianza: {result['resultado']['lightgbm']['confianza']:.1f}%")
+                
+            if 'voting_ensemble' in result['resultado']:
+                print(f"\n  🎯 Voting Ensemble:")
+                print(f"     Predicción: {result['resultado']['voting_ensemble']['prediccion']}")
+                print(f"     Confianza: {result['resultado']['voting_ensemble']['confianza']:.1f}%")
         
         print(f"\n⚽ GOLES TOTALES:")
-        print(f"  🌲 Random Forest: {result['goles_totales']['random_forest']}")
-        print(f"  ⚡ Gradient Boosting: {result['goles_totales']['gradient_boosting']}")
-        print(f"  📈 Promedio: {result['goles_totales']['promedio']}")
+        best_goals = result['goles_totales']['mejor_modelo']
+        print(f"  🏆 {best_goals['nombre']} (MAE: {best_goals['mae']}): {best_goals['prediccion']}")
+        if verbose:
+            print(f"  🌲 Random Forest: {result['goles_totales']['random_forest']}")
+            print(f"  ⚡ Gradient Boosting: {result['goles_totales']['gradient_boosting']}")
+            if 'xgboost' in result['goles_totales']:
+                print(f"  ⚡ XGBoost: {result['goles_totales']['xgboost']}")
+            if 'lightgbm' in result['goles_totales']:
+                print(f"  💡 LightGBM: {result['goles_totales']['lightgbm']}")
+            if 'voting_ensemble' in result['goles_totales']:
+                print(f"  🎯 Voting Ensemble: {result['goles_totales']['voting_ensemble']}")
+            print(f"  📈 Promedio: {result['goles_totales']['promedio']}")
         
         print(f"\n🥅 AMBOS ANOTAN (BTTS):")
-        print(f"  🌲 Random Forest: SI {result['ambos_anotan']['random_forest']['si']:.1f}% | NO {result['ambos_anotan']['random_forest']['no']:.1f}%")
-        print(f"  ⚡ Gradient Boosting: SI {result['ambos_anotan']['gradient_boosting']['si']:.1f}% | NO {result['ambos_anotan']['gradient_boosting']['no']:.1f}%")
-        print(f"  📈 Promedio: SI {result['ambos_anotan']['promedio']['si']:.1f}% | NO {result['ambos_anotan']['promedio']['no']:.1f}%")
+        best_btts = result['ambos_anotan']['mejor_modelo']
+        print(f"  🏆 {best_btts['nombre']} (Precisión: {best_btts['precision']}):")
+        print(f"     SI {best_btts['si']:.1f}% | NO {best_btts['no']:.1f}%")
+        if verbose:
+            print(f"  🌲 Random Forest: SI {result['ambos_anotan']['random_forest']['si']:.1f}% | NO {result['ambos_anotan']['random_forest']['no']:.1f}%")
+            print(f"  ⚡ Gradient Boosting: SI {result['ambos_anotan']['gradient_boosting']['si']:.1f}% | NO {result['ambos_anotan']['gradient_boosting']['no']:.1f}%")
+            if 'xgboost' in result['ambos_anotan']:
+                print(f"  ⚡ XGBoost: SI {result['ambos_anotan']['xgboost']['si']:.1f}% | NO {result['ambos_anotan']['xgboost']['no']:.1f}%")
+            if 'lightgbm' in result['ambos_anotan']:
+                print(f"  💡 LightGBM: SI {result['ambos_anotan']['lightgbm']['si']:.1f}% | NO {result['ambos_anotan']['lightgbm']['no']:.1f}%")
+            if 'voting_ensemble' in result['ambos_anotan']:
+                print(f"  🎯 Voting Ensemble: SI {result['ambos_anotan']['voting_ensemble']['si']:.1f}% | NO {result['ambos_anotan']['voting_ensemble']['no']:.1f}%")
+            print(f"  📈 Promedio: SI {result['ambos_anotan']['promedio']['si']:.1f}% | NO {result['ambos_anotan']['promedio']['no']:.1f}%")
         
         print(f"\n{'='*70}\n")
 

@@ -78,21 +78,33 @@ def parse_prediction_output(output, home_team, away_team):
             'home_team': home_team,
             'away_team': away_team,
             'resultado': {
+                'mejor_modelo': {'probabilidades': {'Home Win': 0, 'Draw': 0, 'Away Win': 0}},
                 'random_forest': {'probabilidades': {'Home Win': 0, 'Draw': 0, 'Away Win': 0}},
-                'gradient_boosting': {'probabilidades': {'Home Win': 0, 'Draw': 0, 'Away Win': 0}}
+                'gradient_boosting': {'probabilidades': {'Home Win': 0, 'Draw': 0, 'Away Win': 0}},
+                'xgboost': {'probabilidades': {'Home Win': 0, 'Draw': 0, 'Away Win': 0}},
+                'lightgbm': {'probabilidades': {'Home Win': 0, 'Draw': 0, 'Away Win': 0}},
+                'voting_ensemble': {'probabilidades': {'Home Win': 0, 'Draw': 0, 'Away Win': 0}}
             }
         }
 
         prediction['goles_totales'] = {
             'prediccion': 2.5,
+            'mejor_modelo': {'nombre': 'Voting Ensemble', 'prediccion': None},
             'random_forest': None,
             'gradient_boosting': None,
+            'xgboost': None,
+            'lightgbm': None,
+            'voting_ensemble': None,
             'promedio': None
         }
         
         prediction['ambos_anotan'] = {
+            'mejor_modelo': {'nombre': 'XGBoost', 'si': 0, 'no': 0},
             'random_forest': {'si': 0, 'no': 0},
             'gradient_boosting': {'si': 0, 'no': 0},
+            'xgboost': {'si': 0, 'no': 0},
+            'lightgbm': {'si': 0, 'no': 0},
+            'voting_ensemble': {'si': 0, 'no': 0},
             'promedio': {'si': 0, 'no': 0}
         }
         
@@ -106,10 +118,18 @@ def parse_prediction_output(output, home_team, away_team):
             line_stripped = line.strip()
             
             # Detectar modelos
-            if 'Random Forest:' in line:
+            if 'Random Forest:' in line and 'Gradient Boosting' not in line:
                 current_model = 'random_forest'
+            elif 'Gradient Boosting' in line and 'Precisión:' in line:
+                current_model = 'mejor_modelo'  # El mejor modelo destacado
             elif 'Gradient Boosting:' in line:
                 current_model = 'gradient_boosting'
+            elif 'XGBoost:' in line:
+                current_model = 'xgboost'
+            elif 'LightGBM:' in line:
+                current_model = 'lightgbm'
+            elif 'Voting Ensemble:' in line:
+                current_model = 'voting_ensemble'
 
             if 'GOLES TOTALES' in line_stripped:
                 goals_section = True
@@ -122,6 +142,18 @@ def parse_prediction_output(output, home_team, away_team):
                 continue
 
             if goals_section:
+                if 'Voting Ensemble' in line_stripped and 'MAE:' in line_stripped:
+                    # Formato: "🏆 Voting Ensemble (MAE: 0.8409): 3.11"
+                    # Buscar el número DESPUÉS del último ":"
+                    parts = line_stripped.split(':')
+                    if len(parts) >= 3:  # Hay al menos 2 ":" (uno en MAE, otro antes del valor)
+                        try:
+                            pred_val = float(parts[-1].strip())
+                            prediction['goles_totales']['mejor_modelo']['prediccion'] = pred_val
+                            prediction['goles_totales']['voting_ensemble'] = pred_val
+                        except:
+                            pass
+                    continue
                 if 'Random Forest:' in line_stripped:
                     match = goals_pattern.search(line_stripped)
                     if match:
@@ -132,6 +164,16 @@ def parse_prediction_output(output, home_team, away_team):
                     if match:
                         prediction['goles_totales']['gradient_boosting'] = float(match.group(1))
                     continue
+                if 'XGBoost:' in line_stripped:
+                    match = goals_pattern.search(line_stripped)
+                    if match:
+                        prediction['goles_totales']['xgboost'] = float(match.group(1))
+                    continue
+                if 'LightGBM:' in line_stripped:
+                    match = goals_pattern.search(line_stripped)
+                    if match:
+                        prediction['goles_totales']['lightgbm'] = float(match.group(1))
+                    continue
                 if 'Promedio:' in line_stripped:
                     match = goals_pattern.search(line_stripped)
                     if match:
@@ -139,6 +181,14 @@ def parse_prediction_output(output, home_team, away_team):
                     continue
             
             if btts_section:
+                if 'XGBoost' in line_stripped and 'Precisión:' in line_stripped:
+                    matches = btts_pattern.findall(line_stripped)
+                    if len(matches) >= 2:
+                        prediction['ambos_anotan']['mejor_modelo']['si'] = float(matches[0])
+                        prediction['ambos_anotan']['mejor_modelo']['no'] = float(matches[1])
+                        prediction['ambos_anotan']['xgboost']['si'] = float(matches[0])
+                        prediction['ambos_anotan']['xgboost']['no'] = float(matches[1])
+                    continue
                 if 'Random Forest:' in line_stripped:
                     matches = btts_pattern.findall(line_stripped)
                     if len(matches) >= 2:
@@ -150,6 +200,24 @@ def parse_prediction_output(output, home_team, away_team):
                     if len(matches) >= 2:
                         prediction['ambos_anotan']['gradient_boosting']['si'] = float(matches[0])
                         prediction['ambos_anotan']['gradient_boosting']['no'] = float(matches[1])
+                    continue
+                if 'XGBoost:' in line_stripped:
+                    matches = btts_pattern.findall(line_stripped)
+                    if len(matches) >= 2:
+                        prediction['ambos_anotan']['xgboost']['si'] = float(matches[0])
+                        prediction['ambos_anotan']['xgboost']['no'] = float(matches[1])
+                    continue
+                if 'LightGBM:' in line_stripped:
+                    matches = btts_pattern.findall(line_stripped)
+                    if len(matches) >= 2:
+                        prediction['ambos_anotan']['lightgbm']['si'] = float(matches[0])
+                        prediction['ambos_anotan']['lightgbm']['no'] = float(matches[1])
+                    continue
+                if 'Voting Ensemble:' in line_stripped:
+                    matches = btts_pattern.findall(line_stripped)
+                    if len(matches) >= 2:
+                        prediction['ambos_anotan']['voting_ensemble']['si'] = float(matches[0])
+                        prediction['ambos_anotan']['voting_ensemble']['no'] = float(matches[1])
                     continue
                 if 'Promedio:' in line_stripped:
                     matches = btts_pattern.findall(line_stripped)
@@ -184,19 +252,28 @@ def parse_prediction_output(output, home_team, away_team):
                     pass
         
         # Validar que tenemos datos válidos
+        mejor_probs = prediction['resultado']['mejor_modelo']['probabilidades']
         rf_probs = prediction['resultado']['random_forest']['probabilidades']
         gb_probs = prediction['resultado']['gradient_boosting']['probabilidades']
         
+        # Usar mejor modelo para goles (Voting Ensemble)
+        mejor_goals = prediction['goles_totales']['mejor_modelo']['prediccion']
+        voting_goals = prediction['goles_totales']['voting_ensemble']
         rf_goals = prediction['goles_totales']['random_forest']
         gb_goals = prediction['goles_totales']['gradient_boosting']
         promedio = prediction['goles_totales']['promedio']
-        if promedio is None and rf_goals is not None and gb_goals is not None:
+        
+        # Si tenemos Voting Ensemble, usarlo como predicción principal
+        if voting_goals is not None:
+            prediction['goles_totales']['prediccion'] = voting_goals
+        elif promedio is None and rf_goals is not None and gb_goals is not None:
             promedio = round((rf_goals + gb_goals) / 2, 2)
             prediction['goles_totales']['promedio'] = promedio
-        if promedio is not None:
+            prediction['goles_totales']['prediccion'] = promedio
+        elif promedio is not None:
             prediction['goles_totales']['prediccion'] = promedio
 
-        if sum(rf_probs.values()) > 0 or sum(gb_probs.values()) > 0:
+        if sum(mejor_probs.values()) > 0 or sum(rf_probs.values()) > 0 or sum(gb_probs.values()) > 0:
             return prediction
         
         return None
@@ -205,15 +282,27 @@ def parse_prediction_output(output, home_team, away_team):
 
 
 def extract_probabilities(prediction):
-    """Extrae probabilidades del resultado de predicción"""
+    """Extrae probabilidades del resultado de predicción - Usa mejor modelo (GB)"""
     try:
         if 'resultado' in prediction:
+            # Usar mejor modelo (Gradient Boosting con 74.93% precision)
+            mejor_probs = prediction['resultado'].get('mejor_modelo', {}).get('probabilidades', {})
             rf_probs = prediction['resultado'].get('random_forest', {}).get('probabilidades', {})
             gb_probs = prediction['resultado'].get('gradient_boosting', {}).get('probabilidades', {})
             
-            home_win = ((rf_probs.get('Home Win', 0) + gb_probs.get('Home Win', 0)) / 200)
-            draw = ((rf_probs.get('Draw', 0) + gb_probs.get('Draw', 0)) / 200)
-            away_win = ((rf_probs.get('Away Win', 0) + gb_probs.get('Away Win', 0)) / 200)
+            # Priorizar mejor_modelo, sino usar GB, sino promedio
+            if sum(mejor_probs.values()) > 0:
+                home_win = mejor_probs.get('Home Win', 0) / 100
+                draw = mejor_probs.get('Draw', 0) / 100
+                away_win = mejor_probs.get('Away Win', 0) / 100
+            elif sum(gb_probs.values()) > 0:
+                home_win = gb_probs.get('Home Win', 0) / 100
+                draw = gb_probs.get('Draw', 0) / 100
+                away_win = gb_probs.get('Away Win', 0) / 100
+            else:
+                home_win = ((rf_probs.get('Home Win', 0) + gb_probs.get('Home Win', 0)) / 200)
+                draw = ((rf_probs.get('Draw', 0) + gb_probs.get('Draw', 0)) / 200)
+                away_win = ((rf_probs.get('Away Win', 0) + gb_probs.get('Away Win', 0)) / 200)
             
             return {
                 'Home Win': home_win,
@@ -233,9 +322,13 @@ def extract_probabilities(prediction):
 
 
 def get_total_goals(prediction):
-    """Extrae goles totales predichos"""
+    """Extrae goles totales predichos - Usa Voting Ensemble (mejor MAE: 0.8409)"""
     try:
         if 'goles_totales' in prediction:
+            # Prioridad: Voting Ensemble > prediccion general > default
+            voting = prediction['goles_totales'].get('voting_ensemble')
+            if voting is not None:
+                return voting
             return prediction['goles_totales'].get('prediccion', 2.5)
         return 2.5
     except:
@@ -243,9 +336,16 @@ def get_total_goals(prediction):
 
 
 def get_btts_probs(prediction):
-    """Extrae probabilidades de BTTS"""
+    """Extrae probabilidades de BTTS - Usa XGBoost (mejor precision: 78.37%)"""
     try:
         if 'ambos_anotan' in prediction:
+            # Prioridad: XGBoost (mejor_modelo) > promedio > default
+            mejor = prediction['ambos_anotan'].get('mejor_modelo')
+            if mejor and mejor.get('si', 0) > 0:
+                return mejor
+            xgb = prediction['ambos_anotan'].get('xgboost')
+            if xgb and xgb.get('si', 0) > 0:
+                return xgb
             return prediction['ambos_anotan'].get('promedio', {'si': 50, 'no': 50})
         return {'si': 50, 'no': 50}
     except:
