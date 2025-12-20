@@ -1,39 +1,39 @@
-Timestamp: 20251220_123538
+Timestamp: 20251215_232630
 
 METRICAS DE ENTRENAMIENTO
 ======================================================================
 
 1. RESULTADO 1X2 (Home/Draw/Away)
    Random Forest:
-      Accuracy:  70.51%
-      Precision: 70.69%
-      Recall:    70.51%
-      F1-Score:  70.49%
+      Accuracy:  69.95%
+      Precision: 70.10%
+      Recall:    69.95%
+      F1-Score:  69.93%
    Gradient Boosting:
-      Accuracy:  74.93%
-      Precision: 74.38%
-      Recall:    74.93%
-      F1-Score:  74.60%
+      Accuracy:  74.24%
+      Precision: 73.50%
+      Recall:    74.24%
+      F1-Score:  73.80%
 
 2. GOLES TOTALES (Regresión)
    Random Forest:
-      MAE: 0.8764
-      R²:  57.11%
+      MAE: 0.8775
+      R²:  57.69%
    Gradient Boosting:
-      MAE: 0.8457
-      R²:  60.12%
+      MAE: 0.8528
+      R²:  60.00%
 
 3. AMBOS ANOTAN (BTTS)
    Random Forest:
-      Accuracy:  77.18%
-      Precision: 77.79%
-      Recall:    77.18%
-      F1-Score:  77.25%
+      Accuracy:  77.62%
+      Precision: 78.11%
+      Recall:    77.62%
+      F1-Score:  77.69%
    Gradient Boosting:
-      Accuracy:  78.02%
-      Precision: 78.09%
-      Recall:    78.02%
-      F1-Score:  78.05%
+      Accuracy:  77.62%
+      Precision: 77.78%
+      Recall:    77.62%
+      F1-Score:  77.66%
 
 ======================================================================
 MEJORAS APLICADAS
