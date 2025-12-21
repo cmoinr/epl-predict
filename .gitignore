@@ -42,6 +42,7 @@ ENV/
 data/processed/*.json
 *.xlsx
 *.db
+catboost_info/
 
 # Models - Peso, descarga bajo demanda
 models/*.pkl
