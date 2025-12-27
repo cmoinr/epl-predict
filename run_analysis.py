@@ -539,7 +539,18 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
         print(f"\nMEJOR OPORTUNIDAD: {best_result['outcome']} a {best_result['odds']:.2f}")
         print(f"   Edge: {best_result['edge']:+.2%} | EV: {best_result['ev']:+.2%}")
         print(f"   Kelly 1/4 recomendado: {kelly_quarter:.2%}")
-        print(f"   Con 1000$: Apuesta = {kelly_quarter*1000:.2f}$ | Ganancia esperada = {kelly_quarter*1000*best_result['ev']:.2f}$")
+        
+        # Calcular métricas con bankroll de 1000$
+        bankroll = 1000
+        apuesta = kelly_quarter * bankroll
+        ganancia_ev = apuesta * best_result['ev']  # Ganancia esperada (promedio considerando probabilidades)
+        ganancia_si_gana = (apuesta * best_result['odds']) - apuesta  # Ganancia neta si la apuesta resulta ganadora
+        
+        print(f"   Con {bankroll}$:")
+        print(f"      • Apuesta recomendada: ${apuesta:.2f}")
+        print(f"      • EV en $: ${ganancia_ev:.2f} (ganancia promedio esperada)")
+        print(f"      • Si ganas: ${ganancia_si_gana:.2f} (ganancia neta al {best_result['model_prob']:.1%} de probabilidad)")
+        print(f"      • Si pierdes: -${apuesta:.2f} (al {1-best_result['model_prob']:.1%} de probabilidad)")
 
 
 def main():

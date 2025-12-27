@@ -2,6 +2,7 @@
 """
 Script para hacer predicciones desde la terminal
 Uso: python predict_match.py --home "Chelsea" --away "Liverpool" --date "2025-02-22"
+python predict_match.py --home "Man United" --away "Newcastle" --date "2025-12-26"
 """
 
 import sys

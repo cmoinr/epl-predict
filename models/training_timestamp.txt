@@ -1,91 +1,91 @@
-Timestamp: 20251221_154608
+Timestamp: 20251226_220651
 
 METRICAS DE ENTRENAMIENTO
 ======================================================================
 
 1. RESULTADO 1X2 (Home/Draw/Away)
    Random Forest:
-      Accuracy:  70.51%
-      Precision: 70.69%
-      Recall:    70.51%
-      F1-Score:  70.49%
+      Accuracy:  70.43%
+      Precision: 71.24%
+      Recall:    70.43%
+      F1-Score:  70.71%
    Gradient Boosting:
-      Accuracy:  74.93%
-      Precision: 74.38%
-      Recall:    74.93%
-      F1-Score:  74.60%
+      Accuracy:  74.00%
+      Precision: 73.44%
+      Recall:    74.00%
+      F1-Score:  73.68%
    XGBoost:
-      Accuracy:  74.44%
-      Precision: 73.69%
-      Recall:    74.44%
-      F1-Score:  73.96%
+      Accuracy:  73.79%
+      Precision: 73.06%
+      Recall:    73.79%
+      F1-Score:  73.34%
    LightGBM:
-      Accuracy:  74.51%
-      Precision: 73.88%
-      Recall:    74.51%
-      F1-Score:  74.11%
+      Accuracy:  74.35%
+      Precision: 73.57%
+      Recall:    74.35%
+      F1-Score:  73.85%
    CatBoost:
-      Accuracy:  73.03%
-      Precision: 71.78%
-      Recall:    73.03%
-      F1-Score:  72.21%
+      Accuracy:  73.58%
+      Precision: 72.21%
+      Recall:    73.58%
+      F1-Score:  72.64%
    🎯 VOTING ENSEMBLE (GB+LGB+XGB):
-      Accuracy:  74.58%
-      Precision: 73.96%
-      Recall:    74.58%
-      F1-Score:  74.19%
+      Accuracy:  74.49%
+      Precision: 73.84%
+      Recall:    74.49%
+      F1-Score:  74.10%
 
 2. GOLES TOTALES (Regresión)
    Random Forest:
-      MAE: 0.8764
-      R²:  57.11%
+      MAE: 0.8632
+      R²:  57.95%
    Gradient Boosting:
-      MAE: 0.8457
-      R²:  60.12%
+      MAE: 0.8473
+      R²:  59.52%
    XGBoost:
-      MAE: 0.8494
-      R²:  59.60%
+      MAE: 0.8570
+      R²:  58.87%
    LightGBM:
-      MAE: 0.8459
-      R²:  59.70%
+      MAE: 0.8460
+      R²:  59.76%
    CatBoost:
-      MAE: 0.8498
-      R²:  59.71%
+      MAE: 0.8420
+      R²:  59.90%
    🎯 VOTING ENSEMBLE (GB+LGB+XGB):
-      MAE: 0.8409
-      R²:  60.51%
+      MAE: 0.8431
+      R²:  60.09%
 
 3. AMBOS ANOTAN (BTTS)
    Random Forest:
-      Accuracy:  77.18%
-      Precision: 77.79%
-      Recall:    77.18%
-      F1-Score:  77.25%
+      Accuracy:  77.72%
+      Precision: 78.26%
+      Recall:    77.72%
+      F1-Score:  77.78%
    Gradient Boosting:
-      Accuracy:  78.02%
-      Precision: 78.09%
-      Recall:    78.02%
-      F1-Score:  78.05%
+      Accuracy:  78.07%
+      Precision: 78.25%
+      Recall:    78.07%
+      F1-Score:  78.11%
    XGBoost:
-      Accuracy:  78.37%
-      Precision: 78.47%
-      Recall:    78.37%
-      F1-Score:  78.40%
+      Accuracy:  77.86%
+      Precision: 77.97%
+      Recall:    77.86%
+      F1-Score:  77.89%
    LightGBM:
-      Accuracy:  77.95%
-      Precision: 78.13%
-      Recall:    77.95%
-      F1-Score:  78.00%
+      Accuracy:  77.37%
+      Precision: 77.50%
+      Recall:    77.37%
+      F1-Score:  77.40%
    CatBoost:
-      Accuracy:  77.32%
-      Precision: 77.55%
-      Recall:    77.32%
-      F1-Score:  77.37%
+      Accuracy:  78.63%
+      Precision: 78.82%
+      Recall:    78.63%
+      F1-Score:  78.67%
    🎯 VOTING ENSEMBLE (XGB+GB+LGB):
-      Accuracy:  77.95%
-      Precision: 78.10%
-      Recall:    77.95%
-      F1-Score:  77.99%
+      Accuracy:  78.35%
+      Precision: 78.48%
+      Recall:    78.35%
+      F1-Score:  78.38%
 
 ======================================================================
 ALGORITMOS IMPLEMENTADOS
