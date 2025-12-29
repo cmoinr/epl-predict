@@ -1,0 +1,185 @@
+================================================================================
+📊 ANÁLISIS DETALLADO: CAPACIDADES DEL MODELO phase2_voting_market.pkl
+================================================================================
+Fecha: 2025-12-28
+Modelo: Voting Ensemble (RF + GB) con 32 market features
+
+================================================================================
+❌ RESPUESTA DIRECTA: ¿QUÉ MERCADOS PREDICE?
+================================================================================
+
+SOLO PREDICE: 1X2 (Resultado Final del Partido)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ phase2_voting_market.pkl                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Mercado: 1X2 - RESULTADO FINAL                                            │
+│  ├─ Outcome 1: Local Gana (H)                                              │
+│  ├─ Outcome X: Empate (D)                                                  │
+│  └─ Outcome 2: Visitante Gana (A)                                          │
+│                                                                             │
+│  Target variable usado: df['FullTimeResult'].map({'A': 0, 'D': 1, 'H': 2})│
+│  Cobertura: 9,510 partidos históricos                                      │
+│  Accuracy: 80.38% en test set                                              │
+│  Features: 59 totales (28 tradicionales + 31 de mercado)                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+⚠️  MERCADOS QUE NO PREDICE (Y POR QUÉ)
+================================================================================
+
+┌─ OVER/UNDER 2.5 GOLES ─────────────────────────────────────────────────────┐
+│                                                                             │
+│  ❌ NO predicho por phase2_voting_market.pkl                               │
+│                                                                             │
+│  Razón técnica:                                                             │
+│  • Target variable usado: FullTimeResult (3 clases: H/D/A)                 │
+│  • Target requerido para O/U 2.5: Total goles > 2.5? (2 clases: Si/No)     │
+│  • El modelo está optimizado para predecir RESULTADO, no GOLES             │
+│                                                                             │
+│  Analogía:                                                                  │
+│  El modelo está entrenado para predecir "¿Quién gana?"                      │
+│  Pero no está entrenado para predecir "¿Cuántos goles se marcan?"           │
+│                                                                             │
+│  Información en el código:                                                  │
+│    y_result = df_proc['FullTimeResult'].map(result_map)  ✅ USADO          │
+│    y_goals = df_proc['FullTimeHomeGoals'] + ...          ❌ NO USADO       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ BTTS (BOTH TEAMS TO SCORE) ───────────────────────────────────────────────┐
+│                                                                             │
+│  ❌ NO predicho por phase2_voting_market.pkl                               │
+│                                                                             │
+│  Razón técnica:                                                             │
+│  • Target variable usado: FullTimeResult (3 clases: H/D/A)                 │
+│  • Target requerido para BTTS: home_goals>0 AND away_goals>0? (Si/No)      │
+│  • El modelo está entrenado para predecir QUIÉN GANA, no SI ANOTAN AMBOS   │
+│                                                                             │
+│  Ejemplo de diferencia:                                                     │
+│  Partido: Manchester United 2 - 1 Arsenal                                   │
+│  ├─ 1X2: Predice correctamente = Local Gana (H)                            │
+│  ├─ BTTS: Debería predecir = SÍ (2>0 AND 1>0)                              │
+│  └─ Problema: El modelo NO fue entrenado para BTTS                         │
+│                                                                             │
+│  Información en el código:                                                  │
+│    'IsUnderdog_Home' ✅ Feature disponible                                  │
+│    'IsUpset' ✅ Feature disponible                                          │
+│    Pero NO hay target específico para BTTS                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+📊 COMPARACIÓN VISUAL: LOS 3 MERCADOS vs CAPACIDADES DEL MODELO
+================================================================================
+
+MERCADO           │ PREDICE │ RAZÓN
+──────────────────┼─────────┼─────────────────────────────────────────────────
+1X2 (Resultado)   │  ✅ SÍ  │ Target: FullTimeResult (H/D/A) → USADO en train
+Over/Under 2.5    │  ❌ NO  │ Target: total_goles > 2.5 → NO EXISTE en train
+BTTS              │  ❌ NO  │ Target: home>0 AND away>0 → NO EXISTE en train
+──────────────────┴─────────┴─────────────────────────────────────────────────
+
+================================================================================
+🔍 CÓDIGO: EVIDENCIA DE LO QUE SE ENTRENA
+================================================================================
+
+Línea 455-457 del retrain_with_market_features.py:
+
+    # Targets
+    result_map = {'A': 0, 'D': 1, 'H': 2}
+    y_result = df_proc['FullTimeResult'].map(result_map)     ✅ USADO
+    y_goals = df_proc['FullTimeHomeGoals'] + df_proc['FullTimeAwayGoals']  ❌ CARGADO PERO NO USADO
+
+Línea 451-453:
+    results, models, scaler_bl, scaler_mk = train_and_compare(
+        X_baseline, X_market, y_result, y_goals    ← y_result se usa, y_goals NO
+    )
+
+Línea 173 de train_and_compare():
+    y_train, y_test = y_result[:split_idx], y_result[split_idx:]  ← SOLO y_result
+
+================================================================================
+💡 ¿POR QUÉ run_analysis.py INTENTA PREDECIR 3 MERCADOS SI EL MODELO SOLO PREDICE 1?
+================================================================================
+
+En run_analysis.py (líneas 90-230):
+
+1. Carga goles_totales y btts (líneas 90, 113)
+2. Intenta PARSEAR output esperando predicciones de Over/Under y BTTS
+3. Pero predict_match.py / src/predictor.py TAMBIÉN solo predice 1X2
+
+Flujo real:
+   run_analysis.py ← solicita Over/Under y BTTS
+   └─ predict_match.py ← solo devuelve 1X2
+      └─ src/predictor.py ← solo carga modelos 1X2
+         └─ Busca en models/ ← EXISTEN archivos antiguos (rf_goals_model.pkl, etc.)
+            pero phase2_voting_market.pkl SOLO predice 1X2
+
+================================================================================
+🎯 ¿QUÉ HACER SI QUIERES PREDECIR LOS 3 MERCADOS?
+================================================================================
+
+Opción 1: ENTRENAR MODELOS ESPECÍFICOS POR MERCADO (Recomendado)
+
+1. Crear 3 modelos separados:
+
+   Modelo 1X2: y_result = FullTimeResult (H/D/A)
+   ├─ Random Forest → phase2_rf_1x2_market.pkl
+   ├─ Gradient Boosting → phase2_gb_1x2_market.pkl
+   └─ Voting → phase2_voting_1x2_market.pkl ✅ ACTUAL
+
+   Modelo Over/Under 2.5: y_over_under = (total_goals > 2.5).astype(int)
+   ├─ Random Forest → phase2_rf_ou25_market.pkl
+   ├─ Gradient Boosting → phase2_gb_ou25_market.pkl
+   └─ Voting → phase2_voting_ou25_market.pkl
+
+   Modelo BTTS: y_btts = (home_goals > 0) & (away_goals > 0).astype(int)
+   ├─ Random Forest → phase2_rf_btts_market.pkl
+   ├─ Gradient Boosting → phase2_gb_btts_market.pkl
+   └─ Voting → phase2_voting_btts_market.pkl
+
+2. Modificar retrain_with_market_features.py para entrenar 3 objetivos:
+   - Cambiar target variable en cada iteración
+   - Ejecutar train_and_compare() 3 veces con targets diferentes
+
+3. Actualizar predict_match.py para cargar 3 modelos y hacer 3 predicciones
+
+Ventajas:
+   ✓ Cada modelo optimizado específicamente para su mercado
+   ✓ Mejor accuracy para cada predicción
+   ✓ Interpretabilidad clara
+
+Opción 2: USAR FEATURES DERIVADAS (Post-procesamiento)
+
+   predict_match.py devuelve predicción 1X2 → fácil extraer:
+   
+   • Over/Under: Si predicción = LOCAL, entonces goles probablemente altos
+   • BTTS: Si predicción = EMPATE, entonces ambos equipos anotan probablemente
+
+Desventajas:
+   ✗ No es tan preciso como entrenar modelos específicos
+   ✗ Basado en correlaciones, no en datos reales
+
+================================================================================
+📋 RESUMEN EJECUTIVO
+================================================================================
+
+PREGUNTA: ¿Predice phase2_voting_market.pkl los 3 mercados (1X2, O/U 2.5, BTTS)?
+
+RESPUESTA PRECISA:
+   ✅ SÍ predice: 1X2 (Resultado Final)
+   ❌ NO predice: Over/Under 2.5 goles
+   ❌ NO predice: BTTS (Both Teams To Score)
+
+RAZÓN TÉCNICA:
+   El modelo fue entrenado SOLO con FullTimeResult como target variable.
+   No fue entrenado con targets para Over/Under o BTTS.
+
+RECOMENDACIÓN:
+   Si necesitas predecir los 3 mercados con precisión similar (80%+),
+   debes entrenar 3 modelos por separado, cada uno optimizado para su mercado.
+
+================================================================================

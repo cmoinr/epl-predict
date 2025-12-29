@@ -117,18 +117,20 @@ def parse_prediction_output(output, home_team, away_team):
         for line in lines:
             line_stripped = line.strip()
             
-            # Detectar modelos
-            if 'Random Forest:' in line and 'Gradient Boosting' not in line:
+            # Detectar modelos - incluyendo Phase 2 Voting Ensemble
+            if 'Phase 2 Voting Ensemble' in line and 'Precisión:' in line:
+                current_model = 'mejor_modelo'  # El mejor modelo destacado (Phase 2)
+            elif 'Random Forest:' in line and 'Gradient Boosting' not in line:
                 current_model = 'random_forest'
-            elif 'Gradient Boosting' in line and 'Precisión:' in line:
-                current_model = 'mejor_modelo'  # El mejor modelo destacado
+            elif 'Gradient Boosting' in line and 'Precisión:' in line and 'Phase 2' not in line:
+                current_model = 'mejor_modelo'  # El mejor modelo destacado (Gradient Boosting legacy)
             elif 'Gradient Boosting:' in line:
                 current_model = 'gradient_boosting'
             elif 'XGBoost:' in line:
                 current_model = 'xgboost'
             elif 'LightGBM:' in line:
                 current_model = 'lightgbm'
-            elif 'Voting Ensemble:' in line:
+            elif 'Voting Ensemble:' in line and 'Phase 2' not in line:
                 current_model = 'voting_ensemble'
 
             if 'GOLES TOTALES' in line_stripped:

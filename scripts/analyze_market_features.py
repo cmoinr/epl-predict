@@ -6,6 +6,11 @@ Genera estadísticas y visualizaciones básicas
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import sys
+import io
+
+# Fix encoding for Windows console
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 
 def analyze_market_features():
@@ -29,20 +34,34 @@ def analyze_market_features():
     print("📈 ANÁLISIS DE FEATURES DE MERCADO")
     print("="*70)
     
-    # 1. Precisión del mercado por tipo de favorito
-    print("\n1️⃣ PRECISIÓN DEL MERCADO POR FAVORITO:")
+    # 1. Precisión del mercado por PREDICCIÓN (no por favorito)
+    print("\n1️⃣ PRECISIÓN DEL MERCADO POR PREDICCIÓN:")
     print("-" * 70)
     
-    market_by_favorite = df_odds.groupby('MarketFavorite').agg({
-        'MarketAccuracy': ['mean', 'count']
+    # Calcular qué predijo realmente el mercado (mayor probabilidad)
+    df_odds['Market_Prediction'] = df_odds[['MarketProb_Home', 'MarketProb_Draw', 'MarketProb_Away']].idxmax(axis=1)
+    df_odds['Market_Prediction'] = df_odds['Market_Prediction'].map({
+        'MarketProb_Home': 'H',
+        'MarketProb_Draw': 'D',
+        'MarketProb_Away': 'A'
+    })
+    df_odds['Market_Correct'] = df_odds['Market_Prediction'] == df_odds['FullTimeResult']
+    
+    market_by_prediction = df_odds.groupby('Market_Prediction').agg({
+        'Market_Correct': ['mean', 'count']
     })
     
-    for favorite_type in ['H', 'D', 'A']:
-        if favorite_type in market_by_favorite.index:
-            accuracy = market_by_favorite.loc[favorite_type, ('MarketAccuracy', 'mean')]
-            count = market_by_favorite.loc[favorite_type, ('MarketAccuracy', 'count')]
-            favorite_name = {'H': 'Local', 'D': 'Empate', 'A': 'Visitante'}[favorite_type]
-            print(f"   {favorite_name:10s}: {accuracy*100:5.1f}% ({count:3.0f} partidos)")
+    print("   Predicción      | Precisión | Partidos")
+    print("   " + "-"*45)
+    for pred_type in ['H', 'D', 'A']:
+        if pred_type in market_by_prediction.index:
+            accuracy = market_by_prediction.loc[pred_type, ('Market_Correct', 'mean')]
+            count = market_by_prediction.loc[pred_type, ('Market_Correct', 'count')]
+            pred_name = {'H': 'Local', 'D': 'Empate', 'A': 'Visitante'}[pred_type]
+            print(f"   {pred_name:15s} | {accuracy*100:7.1f}% | {count:8.0f}")
+    
+    overall_accuracy = df_odds['Market_Correct'].mean()
+    print(f"\n   📊 Precisión GLOBAL del mercado: {overall_accuracy*100:.1f}%")
     
     # 2. Tasa de upset por rango de probabilidad
     print("\n2️⃣ TASA DE UPSETS POR RANGO DE PROBABILIDAD DEL MERCADO:")
@@ -85,16 +104,27 @@ def analyze_market_features():
     print("\n4️⃣ DESACUERDO ENTRE CASAS Y SORPRESAS:")
     print("-" * 70)
     
-    # Dividir por nivel de desacuerdo
-    high_disagreement_threshold = df_odds['MarketDisagreement'].quantile(0.75)
+    # Usar OddsStd como proxy cuando MarketDisagreement no está disponible
+    df_odds['Disagreement_Metric'] = df_odds['MarketDisagreement'].fillna(
+        (df_odds['OddsStd_Home'] + df_odds['OddsStd_Draw'] + df_odds['OddsStd_Away']) / 3
+    )
     
-    df_odds['HighDisagreement'] = df_odds['MarketDisagreement'] > high_disagreement_threshold
+    valid_disagreement = df_odds['Disagreement_Metric'].notna()
+    print(f"   Partidos con métrica de desacuerdo: {valid_disagreement.sum()}/{len(df_odds)}")
     
-    upset_by_disagreement = df_odds.groupby('HighDisagreement')['IsUpset'].mean()
-    
-    print(f"   Bajo desacuerdo entre casas:  Upsets = {upset_by_disagreement[False]*100:.1f}%")
-    print(f"   Alto desacuerdo entre casas:  Upsets = {upset_by_disagreement[True]*100:.1f}%")
-    print(f"\n   💡 Insight: Más desacuerdo = {(upset_by_disagreement[True]/upset_by_disagreement[False]-1)*100:+.1f}% más sorpresas")
+    if valid_disagreement.sum() > 0:
+        df_valid = df_odds[valid_disagreement].copy()
+        high_disagreement_threshold = df_valid['Disagreement_Metric'].quantile(0.75)
+        
+        df_valid['HighDisagreement'] = df_valid['Disagreement_Metric'] > high_disagreement_threshold
+        
+        upset_by_disagreement = df_valid.groupby('HighDisagreement')['IsUpset'].mean()
+        
+        print(f"\n   Bajo desacuerdo entre casas:  Upsets = {upset_by_disagreement[False]*100:.1f}%")
+        print(f"   Alto desacuerdo entre casas:  Upsets = {upset_by_disagreement[True]*100:.1f}%")
+        print(f"\n   💡 Insight: Más desacuerdo = {(upset_by_disagreement[True]/upset_by_disagreement[False]-1)*100:+.1f}% más sorpresas")
+    else:
+        print("   ⚠️  No hay suficientes datos de desacuerdo")
     
     # 5. Partidos competitivos
     print("\n5️⃣ PARTIDOS COMPETITIVOS (CUOTAS SIMILARES):")
@@ -131,8 +161,8 @@ def analyze_market_features():
     print(f"   Overround máximo:   {max_overround:.4f} ({(max_overround-1)*100:.2f}% margen)")
     print(f"\n   💡 Las casas tienen ~{(avg_overround-1)*100:.1f}% de margen de ganancia")
     
-    # 7. Equipos más subestimados/sobreestimados
-    print("\n7️⃣ EQUIPOS CON MAYOR MARKET SURPRISE (TOP 5):")
+    # 7. Equipos más subestimados/sobreestimados y underdogs
+    print("\n7️⃣ ANÁLISIS DE EQUIPOS: UNDERDOGS Y SORPRESAS:")
     print("-" * 70)
     
     # Market surprise promedio por equipo (como local)
@@ -148,9 +178,48 @@ def analyze_market_features():
     for i, (team, data) in enumerate(home_surprise.tail(5).iterrows(), 1):
         print(f"   {i}. {team:20s}: {data['mean']*100:5.1f}% surprise ({data['count']:.0f} partidos)")
     
-    # 8. Recomendaciones para features
-    print("\n8️⃣ FEATURES MÁS PROMETEDORAS PARA TU MODELO:")
+    # Análisis de underdogs
+    print("\n   🐕 RENDIMIENTO DE UNDERDOGS:")
+    underdog_home = df_odds[df_odds['IsUnderdog_Home'] == 1]
+    underdog_away = df_odds[df_odds['IsUnderdog_Away'] == 1]
+    
+    home_underdog_wins = (underdog_home['FullTimeResult'] == 'H').sum()
+    away_underdog_wins = (underdog_away['FullTimeResult'] == 'A').sum()
+    
+    print(f"   Underdogs locales: {len(underdog_home)} partidos, {home_underdog_wins} victorias ({home_underdog_wins/len(underdog_home)*100:.1f}%)")
+    print(f"   Underdogs visitantes: {len(underdog_away)} partidos, {away_underdog_wins} victorias ({away_underdog_wins/len(underdog_away)*100:.1f}%)")
+    
+    # Equipos con mayor tasa de upsets
+    if 'Team_UpsetRate_L10' in df_odds.columns:
+        team_upset_stats = []
+        for team in df_odds['HomeTeam'].unique():
+            team_matches = df_odds[
+                (df_odds['HomeTeam'] == team) | (df_odds['AwayTeam'] == team)
+            ].copy()
+            if len(team_matches) >= 10 and team_matches['Team_UpsetRate_L10'].notna().any():
+                avg_upset_rate = team_matches['Team_UpsetRate_L10'].mean()
+                team_upset_stats.append((team, avg_upset_rate, len(team_matches)))
+        
+        if team_upset_stats:
+            team_upset_stats.sort(key=lambda x: x[1], reverse=True)
+            print("\n   ⚡ EQUIPOS QUE MÁS SORPRENDEN (Team_UpsetRate_L10):")
+            for i, (team, rate, count) in enumerate(team_upset_stats[:5], 1):
+                print(f"   {i}. {team:20s}: {rate*100:5.1f}% upset rate ({count} partidos)")
+    
+    # 8. Recomendaciones para features y comparación Raw vs Adjusted
+    print("\n8️⃣ ANÁLISIS DE FEATURES Y PROBABILIDADES:")
     print("-" * 70)
+    
+    # Comparar probabilidades raw vs adjusted
+    print("\n   📊 IMPACTO DEL OVERROUND (Raw vs Adjusted Probabilities):")
+    for outcome in ['Home', 'Draw', 'Away']:
+        raw_col = f'MarketProb_{outcome}'
+        adj_col = f'AdjustedProb_{outcome}'
+        if raw_col in df_odds.columns and adj_col in df_odds.columns:
+            avg_raw = df_odds[raw_col].mean()
+            avg_adj = df_odds[adj_col].mean()
+            diff = avg_adj - avg_raw
+            print(f"   {outcome:10s}: Raw={avg_raw:.4f}, Adjusted={avg_adj:.4f}, Diff={diff:+.4f}")
     
     # Calcular correlación con resultado (0=Away, 0.5=Draw, 1=Home)
     df_odds['ResultNumeric'] = df_odds['FullTimeResult'].map({'A': 0, 'D': 0.5, 'H': 1})
@@ -158,58 +227,79 @@ def analyze_market_features():
     market_features = [
         'MarketProb_Home',
         'MarketProb_Away',
+        'MarketProb_Draw',
+        'AdjustedProb_Home',
+        'AdjustedProb_Away',
         'FavoriteStrength',
         'MarketConsensus',
         'ImpliedGoalDiff',
         'MarketDisagreement',
-        'IsCompetitiveMatch'
+        'IsCompetitiveMatch',
+        'OddsStd_Home',
+        'OddsRange_Home'
     ]
     
     correlations = []
     for feat in market_features:
         if feat in df_odds.columns:
-            corr = df_odds[[feat, 'ResultNumeric']].corr().iloc[0, 1]
-            correlations.append((feat, abs(corr)))
+            valid_data = df_odds[[feat, 'ResultNumeric']].dropna()
+            if len(valid_data) > 0:
+                corr = valid_data.corr().iloc[0, 1]
+                correlations.append((feat, abs(corr), len(valid_data)))
     
     correlations.sort(key=lambda x: x[1], reverse=True)
     
-    print("\n   Feature                    | Correlación con Resultado")
-    print("   " + "-"*60)
-    for feat, corr in correlations:
-        stars = "⭐" * int(corr * 10)
-        print(f"   {feat:27s} | {corr:.4f} {stars}")
+    print("\n   Feature                    | Correlación | Datos Válidos")
+    print("   " + "-"*65)
+    for feat, corr, valid_count in correlations:
+        stars = "⭐" * min(int(corr * 10), 5)
+        print(f"   {feat:27s} | {corr:.4f} {stars:6s} | {valid_count}/{len(df_odds)}")
     
     # Summary
     print("\n" + "="*70)
     print("✅ CONCLUSIONES Y RECOMENDACIONES")
     print("="*70)
     print(f"""
-   1. El mercado es {df_odds['MarketAccuracy'].mean()*100:.1f}% preciso - HAY MARGEN PARA MEJORA
-   
+   1. El mercado es {overall_accuracy*100:.1f}% preciso en su predicción más probable
+      - Local: {market_by_prediction.loc['H', ('Market_Correct', 'mean')]*100:.1f}% ({int(market_by_prediction.loc['H', ('Market_Correct', 'count')])} predicciones)
+      - Visitante: {market_by_prediction.loc['A', ('Market_Correct', 'mean')]*100:.1f}% ({int(market_by_prediction.loc['A', ('Market_Correct', 'count')])} predicciones)""")
+    
+    if 'D' in market_by_prediction.index:
+        print(f"      - Empate: {market_by_prediction.loc['D', ('Market_Correct', 'mean')]*100:.1f}% ({int(market_by_prediction.loc['D', ('Market_Correct', 'count')])} predicciones)")
+    
+    print(f"""
    2. Favoritos CLAROS tienen {accuracy_by_clarity[True]*100:.1f}% precisión vs {accuracy_by_clarity[False]*100:.1f}% dudosos
       → Tu modelo debe enfocarse en partidos con baja FavoriteStrength
-   
-   3. {upset_by_disagreement[True]*100:.1f}% de upsets ocurren con alto desacuerdo entre casas
-      → MarketDisagreement es señal de value betting potencial
-   
-   4. Partidos competitivos (IsCompetitiveMatch=1) son más impredecibles
+   """)
+    
+    if valid_disagreement.sum() > 0:
+        print(f"""   3. Alto desacuerdo entre casas correlaciona con más upsets
+      → MarketDisagreement/OddsStd son señales de value betting potencial
+   """)
+    
+    print(f"""   4. Partidos competitivos (IsCompetitiveMatch=1) son más impredecibles
       → Requieren features más sofisticadas
    
-   5. Las casas tienen ~{(avg_overround-1)*100:.1f}% de margen
+   5. Las casas tienen ~{(avg_overround-1)*100:.1f}% de margen (overround)
       → Necesitas edge > {(avg_overround-1)*100:.1f}% para ser rentable
+      → Usar AdjustedProb_* elimina este sesgo
    
    🎯 FEATURES RECOMENDADAS para incluir en tu modelo:
-      - MarketProb_Home/Away (alta correlación)
-      - FavoriteStrength (identifica favoritos claros)
-      - ImpliedGoalDiff (predictor de resultado)
-      - MarketConsensus (confiabilidad de la predicción)
-      - Team_AvgMarketProb_L10 (reputación histórica)
+      ⭐⭐⭐⭐ MarketProb_Home/Away/Draw (captura expectativa del mercado)
+      ⭐⭐⭐⭐ AdjustedProb_* (probabilidades verdaderas sin overround)
+      ⭐⭐⭐⭐ ImpliedGoalDiff (predictor directo de resultado)
+      ⭐⭐⭐ FavoriteStrength (identifica favoritos claros vs dudosos)
+      ⭐⭐⭐ MarketConsensus (confiabilidad de la predicción)
+      ⭐⭐ OddsStd_* (volatilidad entre casas = incertidumbre)
+      ⭐⭐ Team_AvgMarketProb_L10 (reputación histórica)
+      ⭐⭐ IsUnderdog_Home/Away (contexto del partido)
+      ⭐ Team_UpsetRate_L10 (equipos que sorprenden)
    
    ⚠️  ADVERTENCIA:
-      Solo tienes {len(df_odds)} partidos con odds ({len(df_odds)/len(df)*100:.1f}% del dataset)
-      Necesitas EXPANDIR este dataset para entrenar modelos robustos
+      Tienes {len(df_odds)} partidos con odds ({len(df_odds)/len(df)*100:.1f}% del dataset)
+      Suficiente para entrenar pero más datos mejorarían robustez
       
-      👉 Descarga odds de football-data.co.uk para 2000-2025
+      👉 Considera descargar más odds de football-data.co.uk (2000-2025)
    """)
     
     print("="*70)

@@ -1,0 +1,66 @@
+================================================================================
+FASE 2: COMPARACIÓN - SIN vs CON MARKET FEATURES
+================================================================================
+
+Timestamp: 20251228_233045
+Dataset: epl_with_market_intelligence.csv
+Market Features Disponibles: 31
+
+FEATURES DE MERCADO INTEGRADAS:
+--------------------------------------------------------------------------------
+Probabilidades:
+  • MarketProb_Home/Draw/Away (raw probabilities)
+  • AdjustedProb_Home/Draw/Away (sin overround)
+
+Odds y Estadísticas:
+  • AvgOdds_*, OddsStd_*, OddsRange_* (promedio, desv. std, rango)
+
+Features Avanzadas:
+  • FavoriteStrength, MarketConsensus, ImpliedGoalDiff
+  • MarketDisagreement, FavoriteEV, IsCompetitiveMatch
+
+Features Contextuales:
+  • IsUnderdog_*, Team_AvgMarketProb_L10, Team_UpsetRate_L10
+  • MarketSurprise_Home, MarketAccuracy, IsUpset
+
+================================================================================
+COMPARACIÓN DE RESULTADOS
+================================================================================
+
+1️⃣  RANDOM FOREST
+--------------------------------------------------------------------------------
+   BASELINE:  Acc=0.7078 | F1=0.7097
+   MARKET:    Acc=0.7821 | F1=0.7846
+   MEJORA:    ΔAcc=+0.0743 (+10.50%)
+
+2️⃣  GRADIENT BOOSTING
+--------------------------------------------------------------------------------
+   BASELINE:  Acc=0.7484 | F1=0.7463
+   MARKET:    Acc=0.7982 | F1=0.8025
+   MEJORA:    ΔAcc=+0.0498 (+6.65%)
+
+3️⃣  VOTING ENSEMBLE (RF + GB) ⭐
+--------------------------------------------------------------------------------
+   BASELINE:  Acc=0.7470 | F1=0.7449
+   MARKET:    Acc=0.8038 | F1=0.8079
+   MEJORA:    ΔAcc=+0.0568 (+7.60%)
+
+================================================================================
+ANÁLISIS
+================================================================================
+
+Mejora promedio en Accuracy: +0.0603
+
+✅ Market Features mejoran SIGNIFICATIVAMENTE el accuracy
+
+✅ Fase 2 completada exitosamente
+✅ 31 features de mercado integradas
+✅ Probabilidades ajustadas sin overround (~7.9% removed)
+✅ Features de consenso y desacuerdo entre casas
+✅ Features rodantes (L10) y contextuales (underdogs, upsets)
+
+📊 Próximos pasos:
+   → Usar phase2_voting_market.pkl para predicciones en producción
+   → Implementar ensemble: 70% ML + 30% Market probabilities
+   → Backtest completo de value betting con 9,319 partidos
+   → Integrar odds en tiempo real para predicciones futuras

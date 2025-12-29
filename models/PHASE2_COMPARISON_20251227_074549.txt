@@ -1,0 +1,72 @@
+================================================================================
+FASE 2: COMPARACIÓN - SIN vs CON MARKET FEATURES
+================================================================================
+
+Timestamp: 20251227_074549
+Dataset: epl_final_enriched.csv
+Market Features Integradas: 23
+
+COLUMNAS DE MERCADO:
+--------------------------------------------------------------------------------
+   1. Market_Home_Prob
+   2. Market_Draw_Prob
+   3. Market_Away_Prob
+   4. Market_Overround
+   5. Market_Fair_Home
+   6. Market_Fair_Draw
+   7. Market_Fair_Away
+   8. Market_Favorite_Prob
+   9. Market_Favorite_Strength
+  10. Market_HomeAway_Diff
+  11. Market_Home_Std
+  12. Market_Draw_Std
+  13. Market_Away_Std
+  14. Market_Uncertainty
+  15. Best_Home_Odds
+  16. Best_Draw_Odds
+  17. Best_Away_Odds
+  18. Worst_Home_Odds
+  19. Worst_Draw_Odds
+  20. Worst_Away_Odds
+  21. Home_Odds_Range
+  22. Draw_Odds_Range
+  23. Away_Odds_Range
+
+================================================================================
+COMPARACIÓN DE RESULTADOS
+================================================================================
+
+1️⃣  RANDOM FOREST
+--------------------------------------------------------------------------------
+   BASELINE:  Acc=0.7153 | F1=0.7156
+   MARKET:    Acc=0.6972 | F1=0.6936
+   MEJORA:    ΔAcc=-0.0181 (-2.52%)
+
+2️⃣  GRADIENT BOOSTING
+--------------------------------------------------------------------------------
+   BASELINE:  Acc=0.7410 | F1=0.7376
+   MARKET:    Acc=0.7465 | F1=0.7437
+   MEJORA:    ΔAcc=+0.0056 (+0.75%)
+
+3️⃣  VOTING ENSEMBLE (RF + GB) ⭐
+--------------------------------------------------------------------------------
+   BASELINE:  Acc=0.7396 | F1=0.7373
+   MARKET:    Acc=0.7396 | F1=0.7363
+   MEJORA:    ΔAcc=+0.0000 (+0.00%)
+
+================================================================================
+ANÁLISIS
+================================================================================
+
+Mejora promedio en Accuracy: -0.0042
+
+⚠️  Market Features tienen impacto limitado
+
+✅ Fase 2 completada exitosamente
+✅ 23 features de mercado integradas
+✅ Datos de múltiples casas de apuestas incluidos
+
+📊 Próximos pasos:
+   → Usar phase2_voting_market.pkl para predicciones en producción
+   → Implementar backtesting con estrategia de apuestas
+   → Optimizar hiperparámetros específicamente para market features

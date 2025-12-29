@@ -1,0 +1,104 @@
+Timestamp: 20251227_071802
+
+METRICAS DE ENTRENAMIENTO
+======================================================================
+
+1. RESULTADO 1X2 (Home/Draw/Away)
+   Random Forest:
+      Accuracy:  70.76%
+      Precision: 71.11%
+      Recall:    70.76%
+      F1-Score:  70.83%
+   Gradient Boosting:
+      Accuracy:  73.89%
+      Precision: 73.20%
+      Recall:    73.89%
+      F1-Score:  73.48%
+   XGBoost:
+      Accuracy:  74.51%
+      Precision: 73.76%
+      Recall:    74.51%
+      F1-Score:  74.02%
+   LightGBM:
+      Accuracy:  74.58%
+      Precision: 73.96%
+      Recall:    74.58%
+      F1-Score:  74.18%
+   CatBoost:
+      Accuracy:  73.33%
+      Precision: 72.08%
+      Recall:    73.33%
+      F1-Score:  72.50%
+   🎯 VOTING ENSEMBLE (GB+LGB+XGB):
+      Accuracy:  74.24%
+      Precision: 73.50%
+      Recall:    74.24%
+      F1-Score:  73.77%
+
+2. GOLES TOTALES (Regresión)
+   Random Forest:
+      MAE: 0.8609
+      R²:  57.96%
+   Gradient Boosting:
+      MAE: 0.8414
+      R²:  60.19%
+   XGBoost:
+      MAE: 0.8452
+      R²:  59.75%
+   LightGBM:
+      MAE: 0.8447
+      R²:  59.64%
+   CatBoost:
+      MAE: 0.8423
+      R²:  59.82%
+   🎯 VOTING ENSEMBLE (GB+LGB+XGB):
+      MAE: 0.8376
+      R²:  60.56%
+
+3. AMBOS ANOTAN (BTTS)
+   Random Forest:
+      Accuracy:  76.88%
+      Precision: 77.57%
+      Recall:    76.88%
+      F1-Score:  76.94%
+   Gradient Boosting:
+      Accuracy:  77.64%
+      Precision: 77.79%
+      Recall:    77.64%
+      F1-Score:  77.68%
+   XGBoost:
+      Accuracy:  77.92%
+      Precision: 78.05%
+      Recall:    77.92%
+      F1-Score:  77.96%
+   LightGBM:
+      Accuracy:  77.71%
+      Precision: 77.95%
+      Recall:    77.71%
+      F1-Score:  77.76%
+   CatBoost:
+      Accuracy:  77.85%
+      Precision: 78.16%
+      Recall:    77.85%
+      F1-Score:  77.91%
+   🎯 VOTING ENSEMBLE (XGB+GB+LGB):
+      Accuracy:  77.92%
+      Precision: 78.11%
+      Recall:    77.92%
+      F1-Score:  77.96%
+
+======================================================================
+ALGORITMOS IMPLEMENTADOS
+- Random Forest (RF)
+- Gradient Boosting (GB)
+- XGBoost (XGB)
+- LightGBM (LGB)
+- CatBoost (CAT)
+- 🎯 Voting Ensemble (Combinación de mejores modelos)
+
+MEJORAS APLICADAS
+- class_weight='balanced' en Random Forest
+- Features adicionales mejoradas
+- Hiperparametros optimizados
+- Algoritmos avanzados de boosting
+- Voting Ensemble con soft voting para mejor precisión
