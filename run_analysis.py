@@ -374,7 +374,8 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         'Away Win': 1 / odds['away_win_odds'],
     }
     
-    # Análisis 1X2
+    # Análisis 1X2 - CON FILTROS ULTRA V2
+    # Ultra V2: Edge 15%, EV 20%, Confianza 70%
     results = []
     for outcome in ['Home Win', 'Draw', 'Away Win']:
         model_prob = model_probs[outcome]
@@ -384,11 +385,12 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         edge = model_prob - market_prob
         ev = (model_prob * odds_val) - 1
         
-        if edge > 0.03 and ev > 0.10:
+        # Filtros Ultra V2 para 1X2: Edge 15%, EV 20%, Confianza 70%
+        if edge > 0.15 and ev > 0.20 and model_prob > 0.70:
             rec = "[BET]"
-        elif edge > 0 and ev > 0.05:
+        elif edge > 0.10 and ev > 0.15 and model_prob > 0.60:
             rec = "[CONSIDER]"
-        elif edge > 0:
+        elif edge > 0.05 and ev > 0.10:
             rec = "[MONITOR]"
         else:
             rec = "[SKIP]"
@@ -426,7 +428,8 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
     over_ev = (over_model_prob * odds['over_2_5_odds']) - 1
     under_ev = (under_model_prob * odds['under_2_5_odds']) - 1
     
-    # Análisis BTTS
+    # Análisis BTTS - SIN FILTROS ULTRA V2 (por ahora)
+    # Mantener filtros originales: Edge 3%, EV 10%
     btts_results = []
     if btts_probs and odds['both_score_yes'] > 0:
         # BTTS Yes
@@ -435,6 +438,7 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         btts_yes_edge = btts_yes_prob - btts_yes_market
         btts_yes_ev = (btts_yes_prob * odds['both_score_yes']) - 1
         
+        # Filtros originales para BTTS (NO Ultra V2)
         btts_yes_rec = "[BET]" if btts_yes_edge > 0.03 and btts_yes_ev > 0.10 else \
                        "[CONSIDER]" if btts_yes_edge > 0 and btts_yes_ev > 0.05 else \
                        "[MONITOR]" if btts_yes_edge > 0 else "[SKIP]"
@@ -455,6 +459,7 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         btts_no_edge = btts_no_prob - btts_no_market
         btts_no_ev = (btts_no_prob * odds['both_score_no']) - 1
         
+        # Filtros originales para BTTS No (NO Ultra V2)
         btts_no_rec = "[BET]" if btts_no_edge > 0.03 and btts_no_ev > 0.10 else \
                       "[CONSIDER]" if btts_no_edge > 0 and btts_no_ev > 0.05 else \
                       "[MONITOR]" if btts_no_edge > 0 else "[SKIP]"
@@ -494,7 +499,7 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
         analyze_single_match(comparator, home_team, away_team, date, model_probs, 
                             total_goals, odds_row, btts_probs)
     
-    print(f"\nANALISIS 1X2:")
+    print(f"\nANALISIS 1X2 - FILTROS ULTRA V2 (Edge 15%, EV 20%, Confianza 70%):")
     best_result = None
     for r in results:
         print(f"\n   {r['outcome']}:")
@@ -505,10 +510,11 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
         if best_result is None or r['ev'] > best_result['ev']:
             best_result = r
     
-    print(f"\nANALISIS GOLES (Over/Under 2.5):")
+    print(f"\nANALISIS GOLES (Over/Under 2.5) - SIN FILTROS ULTRA V2:")
     print(f"\n   Over 2.5:")
     print(f"      Cuota: {odds['over_2_5_odds']:.2f} | Modelo: {over_prob:.1%} vs Mercado: {1/odds['over_2_5_odds']:.1%}")
     print(f"      Edge: {over_edge:+.2%} | EV: {over_ev:+.2%}")
+    # Filtros originales para O/U (NO Ultra V2)
     over_rec = "[BET]" if over_edge > 0.03 and over_ev > 0.10 else \
                "[CONSIDER]" if over_edge > 0 and over_ev > 0.05 else \
                "[MONITOR]" if over_edge > 0 else "[SKIP]"
@@ -517,6 +523,7 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
     print(f"\n   Under 2.5:")
     print(f"      Cuota: {odds['under_2_5_odds']:.2f} | Modelo: {under_prob:.1%} vs Mercado: {1/odds['under_2_5_odds']:.1%}")
     print(f"      Edge: {under_edge:+.2%} | EV: {under_ev:+.2%}")
+    # Filtros originales para O/U (NO Ultra V2)
     under_rec = "[BET]" if under_edge > 0.03 and under_ev > 0.10 else \
                 "[CONSIDER]" if under_edge > 0 and under_ev > 0.05 else \
                 "[MONITOR]" if under_edge > 0 else "[SKIP]"
@@ -557,6 +564,11 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
 
 def main():
     print("ANALISIS INTEGRADO: PREDICCION + COMPARATIVA DE ODDS")
+    print("FILTROS ULTRA V2 APLICADOS AL MERCADO 1X2")
+    print("  • 1X2: Edge 15%, EV 20%, Confianza 70%")
+    print("  • O/U 2.5: Edge 3%, EV 10% (filtros originales)")
+    print("  • BTTS: Edge 3%, EV 10% (filtros originales)")
+    print()
     
     try:
         odds_df = load_odds_and_matches()
@@ -565,7 +577,7 @@ def main():
         print("   Asegurate de que existe: data/processed/sample_odds.csv")
         return
     
-    # Inicializar comparador
+    # Inicializar comparador (ya no se usa para filtros, solo para kelly)
     comparator = OddsComparison(min_edge=0.03, min_ev=0.10, min_confidence=0.50)
     
     all_bets = []
