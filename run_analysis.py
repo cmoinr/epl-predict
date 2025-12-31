@@ -374,8 +374,8 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         'Away Win': 1 / odds['away_win_odds'],
     }
     
-    # Análisis 1X2 - CON FILTROS ULTRA V2
-    # Ultra V2: Edge 15%, EV 20%, Confianza 70%
+    # Análisis 1X2 - CON FILTROS ULTRA V2 (EXACTOS DEL BACKTEST)
+    # Ultra V2 tiene rangos ESPECÍFICOS para cada tipo de apuesta
     results = []
     for outcome in ['Home Win', 'Draw', 'Away Win']:
         model_prob = model_probs[outcome]
@@ -385,15 +385,47 @@ def analyze_single_match(comparator, home_team, away_team, date, model_probs,
         edge = model_prob - market_prob
         ev = (model_prob * odds_val) - 1
         
-        # Filtros Ultra V2 para 1X2: Edge 15%, EV 20%, Confianza 70%
-        if edge > 0.15 and ev > 0.20 and model_prob > 0.70:
-            rec = "[BET]"
-        elif edge > 0.10 and ev > 0.15 and model_prob > 0.60:
-            rec = "[CONSIDER]"
-        elif edge > 0.05 and ev > 0.10:
-            rec = "[MONITOR]"
-        else:
-            rec = "[SKIP]"
+        # Aplicar filtros Ultra V2 específicos según tipo de apuesta
+        rec = "[SKIP]"  # Por defecto, saltar
+        
+        if outcome == 'Away Win':
+            # AWAY WINS: Cuotas 2.5-4.0, Edge 10%-22%, Prob 40%-60%
+            if (2.5 <= odds_val <= 4.0 and 
+                0.10 <= edge <= 0.22 and
+                0.40 <= model_prob <= 0.60):
+                rec = "[BET]"
+            elif (2.3 <= odds_val <= 4.5 and 
+                  0.08 <= edge <= 0.25 and
+                  0.35 <= model_prob <= 0.65):
+                rec = "[CONSIDER]"
+            elif edge > 0.05:
+                rec = "[MONITOR]"
+                
+        elif outcome == 'Home Win':
+            # HOME WINS: Cuotas 2.5-3.0, Edge 18%-22%, Prob 45%-60%
+            if (2.5 <= odds_val <= 3.0 and
+                0.18 <= edge <= 0.22 and
+                0.45 <= model_prob <= 0.60):
+                rec = "[BET]"
+            elif (2.3 <= odds_val <= 3.5 and
+                  0.15 <= edge <= 0.25 and
+                  0.40 <= model_prob <= 0.65):
+                rec = "[CONSIDER]"
+            elif edge > 0.10:
+                rec = "[MONITOR]"
+                
+        elif outcome == 'Draw':
+            # DRAWS: Cuotas 3.0-4.0, Edge 12%-15% EXACTO, Prob 25%-35%
+            if (3.0 <= odds_val <= 4.0 and
+                0.12 <= edge <= 0.15 and
+                0.25 <= model_prob <= 0.35):
+                rec = "[BET]"
+            elif (2.8 <= odds_val <= 4.5 and
+                  0.10 <= edge <= 0.18 and
+                  0.20 <= model_prob <= 0.40):
+                rec = "[CONSIDER]"
+            elif edge > 0.08:
+                rec = "[MONITOR]"
         
         results.append({
             'outcome': outcome,
@@ -499,7 +531,10 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
         analyze_single_match(comparator, home_team, away_team, date, model_probs, 
                             total_goals, odds_row, btts_probs)
     
-    print(f"\nANALISIS 1X2 - FILTROS ULTRA V2 (Edge 15%, EV 20%, Confianza 70%):")
+    print(f"\nANALISIS 1X2 - FILTROS ULTRA V2 (Rangos específicos por tipo):")
+    print(f"   Away: Cuota 2.5-4.0, Edge 10%-22%, Prob 40%-60%")
+    print(f"   Home: Cuota 2.5-3.0, Edge 18%-22%, Prob 45%-60%")
+    print(f"   Draw: Cuota 3.0-4.0, Edge 12%-15%, Prob 25%-35%")
     best_result = None
     for r in results:
         print(f"\n   {r['outcome']}:")
@@ -510,24 +545,108 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
         if best_result is None or r['ev'] > best_result['ev']:
             best_result = r
     
-    print(f"\nANALISIS GOLES (Over/Under 2.5) - SIN FILTROS ULTRA V2:")
+    print(f"\nANALISIS GOLES (Over/Under 2.5) - FILTROS OPTIMIZADOS:")
+    print(f"   Over: Odds 1.6-2.5, Edge 0-30%, Prob 50-80% | Under: Odds 2.0-3.0, Edge 3-30%, Prob 40-70%")
     print(f"\n   Over 2.5:")
     print(f"      Cuota: {odds['over_2_5_odds']:.2f} | Modelo: {over_prob:.1%} vs Mercado: {1/odds['over_2_5_odds']:.1%}")
     print(f"      Edge: {over_edge:+.2%} | EV: {over_ev:+.2%}")
-    # Filtros originales para O/U (NO Ultra V2)
-    over_rec = "[BET]" if over_edge > 0.03 and over_ev > 0.10 else \
-               "[CONSIDER]" if over_edge > 0 and over_ev > 0.05 else \
-               "[MONITOR]" if over_edge > 0 else "[SKIP]"
+    
+    # FILTROS OPTIMIZADOS OVER 2.5 (basado en análisis de 559 predicciones históricas)
+    # [BET] - ROI 48.53%: Edge 8-20%, Odds 1.8-2.0, Prob 65-80%
+    over_bet = (
+        ((over_edge >= 0.15) and (over_edge < 0.20) and 
+         (odds['over_2_5_odds'] >= 1.8) and (odds['over_2_5_odds'] < 2.0) and 
+         (over_prob >= 0.75) and (over_prob < 0.80)) or
+        ((over_edge >= 0.08) and (over_edge < 0.10) and 
+         (odds['over_2_5_odds'] >= 1.8) and (odds['over_2_5_odds'] < 2.0) and 
+         (over_prob >= 0.65) and (over_prob < 0.70))
+    )
+    
+    # [CONSIDER] - ROI 19.14%: Múltiples rangos
+    over_consider = (
+        ((over_edge >= 0.0) and (over_edge < 0.05) and 
+         (odds['over_2_5_odds'] >= 1.6) and (odds['over_2_5_odds'] < 1.8) and 
+         (over_prob >= 0.65) and (over_prob < 0.70)) or
+        ((over_edge >= 0.20) and (over_edge < 0.30) and 
+         (odds['over_2_5_odds'] >= 1.8) and (odds['over_2_5_odds'] < 2.0) and 
+         (over_prob >= 0.75) and (over_prob < 0.80))
+    )
+    
+    # [MONITOR] - ROI 14.18%: Rangos amplios
+    over_monitor = (
+        ((over_edge >= 0.05) and (over_edge < 0.08) and 
+         (odds['over_2_5_odds'] >= 2.0) and (odds['over_2_5_odds'] < 2.5) and 
+         (over_prob >= 0.50) and (over_prob < 0.60)) or
+        ((over_edge >= 0.03) and (over_edge < 0.15) and 
+         (odds['over_2_5_odds'] >= 1.4) and (odds['over_2_5_odds'] < 1.6) and 
+         (over_prob >= 0.75) and (over_prob < 0.80))
+    )
+    
+    over_rec = "[BET]" if over_bet else \
+               "[CONSIDER]" if over_consider else \
+               "[MONITOR]" if over_monitor else "[SKIP]"
     print(f"      {over_rec}")
     
     print(f"\n   Under 2.5:")
     print(f"      Cuota: {odds['under_2_5_odds']:.2f} | Modelo: {under_prob:.1%} vs Mercado: {1/odds['under_2_5_odds']:.1%}")
     print(f"      Edge: {under_edge:+.2%} | EV: {under_ev:+.2%}")
-    # Filtros originales para O/U (NO Ultra V2)
-    under_rec = "[BET]" if under_edge > 0.03 and under_ev > 0.10 else \
-                "[CONSIDER]" if under_edge > 0 and under_ev > 0.05 else \
-                "[MONITOR]" if under_edge > 0 else "[SKIP]"
+    
+    # FILTROS OPTIMIZADOS UNDER 2.5 (basado en análisis de 458 predicciones históricas)
+    # [BET] - ROI 79%: Edge 3-5%, Odds 2.4-3.0, Prob 40-50% (muy selectivo, solo 11 bets)
+    under_bet = (
+        (under_edge >= 0.03) and (under_edge < 0.05) and 
+        (odds['under_2_5_odds'] >= 2.4) and (odds['under_2_5_odds'] < 3.0) and 
+        (under_prob >= 0.40) and (under_prob < 0.50)
+    )
+    
+    # [CONSIDER] - ROI 10-13%: Rangos alternativos
+    under_consider = (
+        ((under_edge >= 0.08) and (under_edge < 0.10) and 
+         (odds['under_2_5_odds'] >= 2.4) and (odds['under_2_5_odds'] < 3.0) and 
+         (under_prob >= 0.40) and (under_prob < 0.50)) or
+        ((under_edge >= 0.20) and (under_edge < 0.30) and 
+         (odds['under_2_5_odds'] >= 2.0) and (odds['under_2_5_odds'] < 2.4) and 
+         (under_prob >= 0.60) and (under_prob < 0.70))
+    )
+    
+    # [MONITOR] - Edge mínimo 3% con rangos amplios
+    under_monitor = (
+        (under_edge >= 0.03) and 
+        (odds['under_2_5_odds'] >= 1.8) and (odds['under_2_5_odds'] < 4.0) and 
+        (under_prob >= 0.30) and (under_prob < 0.85)
+    )
+    
+    under_rec = "[BET]" if under_bet else \
+                "[CONSIDER]" if under_consider else \
+                "[MONITOR]" if under_monitor else "[SKIP]"
     print(f"      {under_rec}")
+    
+    # Comparar O/U con mejor resultado 1X2
+    over_result = {
+        'outcome': 'Over 2.5',
+        'model_prob': over_prob,
+        'market_prob': 1/odds['over_2_5_odds'],
+        'odds': odds['over_2_5_odds'],
+        'edge': over_edge,
+        'ev': over_ev,
+        'rec': over_rec
+    }
+    
+    under_result = {
+        'outcome': 'Under 2.5',
+        'model_prob': under_prob,
+        'market_prob': 1/odds['under_2_5_odds'],
+        'odds': odds['under_2_5_odds'],
+        'edge': under_edge,
+        'ev': under_ev,
+        'rec': under_rec
+    }
+    
+    # Actualizar mejor resultado si O/U es mejor
+    if over_rec.startswith('[BET]') and over_ev > best_result['ev']:
+        best_result = over_result
+    if under_rec.startswith('[BET]') and under_ev > best_result['ev']:
+        best_result = under_result
     
     if btts_results:
         print(f"\nANALISIS AMBOS ANOTAN (BTTS):")
@@ -564,10 +683,15 @@ def print_match_analysis(comparator, home_team, away_team, date, model_probs,
 
 def main():
     print("ANALISIS INTEGRADO: PREDICCION + COMPARATIVA DE ODDS")
-    print("FILTROS ULTRA V2 APLICADOS AL MERCADO 1X2")
-    print("  • 1X2: Edge 15%, EV 20%, Confianza 70%")
-    print("  • O/U 2.5: Edge 3%, EV 10% (filtros originales)")
-    print("  • BTTS: Edge 3%, EV 10% (filtros originales)")
+    print("FILTROS OPTIMIZADOS POR MERCADO")
+    print("  • 1X2 (Ultra V2):")
+    print("    - AWAY: Cuotas 2.5-4.0, Edge 10%-22%, Prob 40%-60%")
+    print("    - HOME: Cuotas 2.5-3.0, Edge 18%-22%, Prob 45%-60%")
+    print("    - DRAW: Cuotas 3.0-4.0, Edge 12%-15%, Prob 25%-35%")
+    print("  • O/U 2.5 (Optimizado v3 - ROI 19.85%):")
+    print("    - OVER: Odds 1.6-2.5, Edge 0-30%, Prob 50-80%")
+    print("    - UNDER: Odds 2.0-3.0, Edge 3-30%, Prob 40-70%")
+    print("  • BTTS: Edge 3%, EV 10% (filtros base)")
     print()
     
     try:
